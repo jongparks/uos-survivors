@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 
-import { BootstrapScene } from "./scenes/BootstrapScene";
+import { MovementScene } from "./scenes/MovementScene";
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -17,11 +17,18 @@ export function GameCanvas() {
       backgroundColor: "#07110e",
       width: 960,
       height: 540,
+      pixelArt: true,
+      physics: {
+        default: "arcade",
+        arcade: {
+          debug: false,
+        },
+      },
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
-      scene: [BootstrapScene],
+      scene: [MovementScene],
     });
 
     return () => {

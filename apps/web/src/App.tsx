@@ -15,12 +15,12 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="hero">
-        <p className="eyebrow">SEOUL · SURVIVAL PROTOCOL</p>
+        <p className="eyebrow">SEOUL · CAMPUS SURVIVAL LOG</p>
         <h1>시대생존록</h1>
         <p className="subtitle">UOS: University of Survivors</p>
       </header>
 
-      <section className="game-frame" aria-label="Phaser game bootstrap">
+      <section className="game-frame" aria-label="Phaser movement test">
         <GameCanvas />
       </section>
 
