@@ -2,6 +2,7 @@ import {
   COMBAT_RULES,
   GAME_PHASE,
   MATCH_WINNER,
+  PLAYER_ACTIVITY,
   PLAYER_ROLE,
   type GameState,
 } from "@uos-survivors/shared";
@@ -14,6 +15,10 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
   }
 
   player.role = PLAYER_ROLE.zombie;
+  player.activity = PLAYER_ACTIVITY.normal;
+  player.activeHideSpotId = "";
+  player.hideStartedAt = 0;
+  player.hideEndsAt = 0;
   player.attackLockedUntil = now + COMBAT_RULES.infectionAttackLockMs;
   player.nextAttackAt = player.attackLockedUntil;
   return true;

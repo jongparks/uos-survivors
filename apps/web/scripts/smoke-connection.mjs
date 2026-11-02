@@ -277,7 +277,7 @@ try {
   }
 
   console.log(
-    `Phase 4 smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${resumedPrivateRoom.roomId} (${resumedPrivateRoom.state.players.size}), ack=${acknowledgedInputs}, infectionLock=${COMBAT_RULES.infectionAttackLockMs}ms`,
+    `Phase 5 foundation smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${resumedPrivateRoom.roomId} (${resumedPrivateRoom.state.players.size}), ack=${acknowledgedInputs}, infectionLock=${COMBAT_RULES.infectionAttackLockMs}ms`,
   );
 } finally {
   await Promise.allSettled(rooms.map((room) => room.leave()));

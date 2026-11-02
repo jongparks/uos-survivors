@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-import { PLAYER_ROLE, type PlayerState } from "@uos-survivors/shared";
+import { PLAYER_ACTIVITY, PLAYER_ROLE, type PlayerState } from "@uos-survivors/shared";
 
 import { TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
 
@@ -47,12 +47,15 @@ export class NetworkPlayerView {
           ? 0xffffff
           : 0x9bb7ff,
     );
-    this.sprite.setAlpha(player.connected ? 1 : 0.42);
+    const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
+    this.sprite.setAlpha(isHidden ? 0.24 : player.connected ? 1 : 0.42);
     this.label.setPosition(x, y - 34);
-    this.label.setAlpha(player.connected ? 1 : 0.62);
+    this.label.setAlpha(isHidden ? 0.72 : player.connected ? 1 : 0.62);
     const roleLabel = player.role === PLAYER_ROLE.zombie ? "좀비" : "인간";
     this.label.setText(
-      player.connected
+      isHidden
+        ? `[은신] ${player.nickname}`
+        : player.connected
         ? `[${roleLabel}] ${player.nickname}`
         : `[${roleLabel}] ${player.nickname} · 재접속 중`,
     );

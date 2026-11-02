@@ -1,6 +1,7 @@
 import {
   COMBAT_RULES,
   GAME_PHASE,
+  PLAYER_ACTIVITY,
   PLAYER_ROLE,
   type GameState,
   type PlayerState,
@@ -45,6 +46,7 @@ export function findZombieAttackTarget(
       targetSessionId === attackerSessionId ||
       !target.connected ||
       target.role !== PLAYER_ROLE.human ||
+      target.activity === PLAYER_ACTIVITY.hidden ||
       !isInsideAttackCone(attacker, target)
     ) {
       return;

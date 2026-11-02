@@ -1,8 +1,11 @@
 import type { Client, StepContext } from "colyseus";
 import { Room } from "colyseus";
+import { StateView } from "@colyseus/schema";
 
 import {
+  CHARACTER_IDS,
   COMBAT_RULES,
+  FOSSIL_MESSAGES,
   GAME_LIMITS,
   GAME_PHASE,
   GameState,
@@ -11,6 +14,7 @@ import {
   NETWORK_RATE,
   PLAYER_SPEED,
   PLAYER_SPAWNS,
+  PLAYER_ACTIVITY,
   PlayerState,
   PLAYER_ROLE,
   RECONNECTION,
@@ -21,7 +25,9 @@ import {
 } from "@uos-survivors/shared";
 
 import { generateRoomCodeCandidate, normalizeNickname } from "../config/playerIdentity.js";
+import { CURRENT_MAP_HIDE_SPOT_CANDIDATES } from "../maps/hideSpotRegistry.js";
 import { resolveZombieAttack } from "../systems/combatSystem.js";
+import { FossilHideSystem } from "../systems/fossilHideSystem.js";
 import { finishIfAllHumansInfected, infectHuman } from "../systems/infectionSystem.js";
 
 const INVITE_CODE_CHANNEL = "$uos-survivors-room-codes";
@@ -36,6 +42,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   maxClients = GAME_LIMITS.maxPlayersPerRoom;
   patchRate = 1000 / NETWORK_RATE.stateSyncHz;
   maxMessagesPerSecond = 60;
+  private readonly fossilHideSystem = new FossilHideSystem(CURRENT_MAP_HIDE_SPOT_CANDIDATES);
+  private readonly interactionHeld = new Map<string, boolean>();
+  private readonly hideSpotSubscribers = new Set<string>();
 
   inputs = this.defineInput(MovementInput, {
     bufferMaxSize: NETWORK_RATE.inputBufferMaxSize,
@@ -51,6 +60,10 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.roomCode = this.roomId;
     this.state.isPrivate = options.visibility === ROOM_VISIBILITY.private;
     await this.setPrivate(this.state.isPrivate);
+    this.onMessage(FOSSIL_MESSAGES.requestHideSpots, (client) => {
+      this.hideSpotSubscribers.add(client.sessionId);
+      this.sendHideSpots(client);
+    });
     this.setFixedTimestep((context) => this.simulate(context), NETWORK_RATE.simulationHz);
   }
 
@@ -64,6 +77,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     player.x = tileToWorld(spawn.tileX);
     player.y = tileToWorld(spawn.tileY);
     this.state.players.set(client.sessionId, player);
+    this.addPlayerToClientViews(client, player);
     this.tryStartMatch();
   }
 
@@ -83,9 +97,14 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     if (player) {
       player.connected = true;
     }
+
+    this.syncClientView(client);
   }
 
   onLeave(client: Client): void {
+    client.view?.dispose();
+    this.interactionHeld.delete(client.sessionId);
+    this.hideSpotSubscribers.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
 
     if (this.state.players.size < COMBAT_RULES.minimumPlayersToStart) {
@@ -102,10 +121,12 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       const replacement = this.state.players.entries().next().value;
       if (replacement) {
         const [sessionId, player] = replacement;
+        this.fossilHideSystem.exit(player);
         player.role = PLAYER_ROLE.zombie;
         player.attackLockedUntil = 0;
         player.nextAttackAt = 0;
         this.state.initialZombieSessionId = sessionId;
+        this.setPlayerVisibleToOthers(sessionId, player, true);
       }
     }
 
@@ -122,8 +143,27 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.players.forEach((player, sessionId) => {
       const inputChannel = this.inputs.get(sessionId);
       const input = inputChannel.next();
+      const interactionPressed = input.interact && !this.interactionHeld.get(sessionId);
+      this.interactionHeld.set(sessionId, input.interact);
+
+      if (this.fossilHideSystem.update(player, now)) {
+        this.setPlayerVisibleToOthers(sessionId, player, true);
+      }
 
       if (this.state.phase === GAME_PHASE.finished) {
+        return;
+      }
+
+      if (player.activity === PLAYER_ACTIVITY.hidden) {
+        if (interactionPressed && this.fossilHideSystem.interact(player, now) === "exited") {
+          this.setPlayerVisibleToOthers(sessionId, player, true);
+        }
+        return;
+      }
+
+      if (interactionPressed && this.fossilHideSystem.interact(player, now) === "entered") {
+        this.setPlayerVisibleToOthers(sessionId, player, false);
+        this.sendHideSpotsToEligibleClients();
         return;
       }
 
@@ -162,6 +202,14 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       return;
     }
 
+    try {
+      this.fossilHideSystem.prepareForMatch();
+      this.state.mapConfigError = "";
+    } catch (error) {
+      this.state.mapConfigError = error instanceof Error ? error.message : "Invalid map hide spot configuration";
+      return;
+    }
+
     const [sessionId, player] = initialZombie;
     player.role = PLAYER_ROLE.zombie;
     player.attackLockedUntil = 0;
@@ -175,10 +223,80 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.phase = GAME_PHASE.waiting;
     this.state.winner = MATCH_WINNER.none;
     this.state.initialZombieSessionId = "";
+    this.state.mapConfigError = "";
+    this.fossilHideSystem.clear();
     this.state.players.forEach((player) => {
+      this.fossilHideSystem.resetPlayer(player);
       player.role = PLAYER_ROLE.human;
       player.attackLockedUntil = 0;
       player.nextAttackAt = 0;
+    });
+    this.state.players.forEach((player, sessionId) => {
+      this.setPlayerVisibleToOthers(sessionId, player, true);
+    });
+  }
+
+  private addPlayerToClientViews(joiningClient: Client, joiningPlayer: PlayerState): void {
+    this.clients.forEach((client) => {
+      if (client.sessionId === joiningClient.sessionId) {
+        this.syncClientView(client);
+      } else if (client.view) {
+        client.view.add(joiningPlayer);
+      } else {
+        this.syncClientView(client);
+      }
+    });
+
+    if (!joiningClient.view) {
+      this.syncClientView(joiningClient);
+    }
+  }
+
+  private syncClientView(client: Client): void {
+    client.view?.dispose();
+    client.view = new StateView();
+    this.state.players.forEach((player, sessionId) => {
+      if (player.activity !== PLAYER_ACTIVITY.hidden || sessionId === client.sessionId) {
+        client.view?.add(player);
+      }
+    });
+  }
+
+  private setPlayerVisibleToOthers(
+    sessionId: string,
+    player: PlayerState,
+    visible: boolean,
+  ): void {
+    this.clients.forEach((client) => {
+      if (!client.view) {
+        this.syncClientView(client);
+        return;
+      }
+      if (client.sessionId === sessionId || visible) {
+        client.view.add(player);
+      } else {
+        client.view.remove(player);
+      }
+    });
+  }
+
+  private sendHideSpots(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+    if (
+      player?.characterId === CHARACTER_IDS.fossil &&
+      player.role === PLAYER_ROLE.human
+    ) {
+      client.send(FOSSIL_MESSAGES.hideSpots, this.fossilHideSystem.getAvailableSpotViews());
+    } else {
+      client.send(FOSSIL_MESSAGES.hideSpots, []);
+    }
+  }
+
+  private sendHideSpotsToEligibleClients(): void {
+    this.clients.forEach((client) => {
+      if (this.hideSpotSubscribers.has(client.sessionId)) {
+        this.sendHideSpots(client);
+      }
     });
   }
 

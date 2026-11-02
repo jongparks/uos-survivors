@@ -4,6 +4,7 @@ import {
   COMBAT_RULES,
   GAME_PHASE,
   GameState,
+  PLAYER_ACTIVITY,
   PLAYER_ROLE,
   PlayerState,
 } from "@uos-survivors/shared";
@@ -46,6 +47,16 @@ describe("zombie combat", () => {
     expect(resolveZombieAttack(state, "zombie", 1_000)).toBeNull();
     expect(zombie.nextAttackAt).toBe(1_000 + COMBAT_RULES.zombieAttackCooldownMs);
     expect(resolveZombieAttack(state, "zombie", 1_001)).toBeNull();
+  });
+
+  it("does not expose a hidden Fossil as an attack target", () => {
+    const state = new GameState();
+    const zombie = addPlayer(state, "zombie", PLAYER_ROLE.zombie, 100, 100);
+    zombie.facingX = 1;
+    const fossil = addPlayer(state, "fossil", PLAYER_ROLE.human, 140, 100);
+    fossil.activity = PLAYER_ACTIVITY.hidden;
+
+    expect(findZombieAttackTarget(state, "zombie")).toBeNull();
   });
 
   it("infects immediately, locks attacks for 1.5 seconds, and finishes the match", () => {

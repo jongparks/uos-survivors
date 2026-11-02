@@ -1,4 +1,5 @@
 export * from "./constants/index.js";
+export * from "./game/characters.js";
 export * from "./game/config.js";
 export * from "./game/map.js";
 export * from "./game/movement.js";
