@@ -1,9 +1,4 @@
-import {
-  PLAYER_SPAWN,
-  TEST_MAP_HEIGHT,
-  TEST_MAP_WIDTH,
-  TILE_INDEX,
-} from "../config/gameplay";
+import { PLAYER_SPAWNS, TEST_MAP_HEIGHT, TEST_MAP_WIDTH, TILE_INDEX } from "./config.js";
 
 function isObstacle(x: number, y: number): boolean {
   const outerWall = x === 0 || y === 0 || x === TEST_MAP_WIDTH - 1 || y === TEST_MAP_HEIGHT - 1;
@@ -25,7 +20,9 @@ export function getTestMapTile(x: number, y: number): number | undefined {
   return TEST_MAP_DATA[y]?.[x];
 }
 
-export function isSpawnTileWalkable(): boolean {
-  return getTestMapTile(PLAYER_SPAWN.tileX, PLAYER_SPAWN.tileY) === TILE_INDEX.floor;
+export function areSpawnTilesWalkable(): boolean {
+  return PLAYER_SPAWNS.every(
+    ({ tileX, tileY }) => getTestMapTile(tileX, tileY) === TILE_INDEX.floor,
+  );
 }
 

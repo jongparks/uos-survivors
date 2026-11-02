@@ -4,14 +4,14 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { GAME_SERVER, ROOM_NAMES } from "@uos-survivors/shared";
 import { defineRoom, defineServer } from "colyseus";
 
-import { BootstrapRoom } from "./rooms/BootstrapRoom.js";
+import { GameRoom } from "./rooms/GameRoom.js";
 
 const parsedPort = Number.parseInt(process.env.PORT ?? "", 10);
 const port = Number.isFinite(parsedPort) ? parsedPort : GAME_SERVER.port;
 
 const server = defineServer({
   rooms: {
-    [ROOM_NAMES.bootstrap]: defineRoom(BootstrapRoom),
+    [ROOM_NAMES.game]: defineRoom(GameRoom),
   },
   transport: new WebSocketTransport(),
   express: (app) => {

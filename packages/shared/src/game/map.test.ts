@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { TEST_MAP_HEIGHT, TEST_MAP_WIDTH, TILE_INDEX } from "../config/gameplay";
-import { getTestMapTile, isSpawnTileWalkable, TEST_MAP_DATA } from "./testMap";
+import { TEST_MAP_HEIGHT, TEST_MAP_WIDTH, TILE_INDEX } from "./config.js";
+import { areSpawnTilesWalkable, getTestMapTile, TEST_MAP_DATA } from "./map.js";
 
 describe("test map", () => {
   it("uses the configured dimensions", () => {
@@ -9,7 +9,7 @@ describe("test map", () => {
     expect(TEST_MAP_DATA.every((row) => row.length === TEST_MAP_WIDTH)).toBe(true);
   });
 
-  it("surrounds the playable area with collidable walls", () => {
+  it("surrounds the playable area with walls", () => {
     for (let x = 0; x < TEST_MAP_WIDTH; x += 1) {
       expect(getTestMapTile(x, 0)).toBe(TILE_INDEX.wall);
       expect(getTestMapTile(x, TEST_MAP_HEIGHT - 1)).toBe(TILE_INDEX.wall);
@@ -21,8 +21,8 @@ describe("test map", () => {
     }
   });
 
-  it("keeps the player spawn on a floor tile", () => {
-    expect(isSpawnTileWalkable()).toBe(true);
+  it("keeps all eight player spawns on floor tiles", () => {
+    expect(areSpawnTilesWalkable()).toBe(true);
   });
 });
 

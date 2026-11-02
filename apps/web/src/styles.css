@@ -24,6 +24,15 @@ input {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
 .app-shell {
   width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
@@ -65,6 +74,127 @@ h1 {
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
 }
 
+.lobby-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+  gap: 48px;
+  align-items: center;
+  min-height: 430px;
+  padding: clamp(28px, 5vw, 64px);
+  border: 1px solid #1d4435;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(17, 48, 36, 0.82), rgba(5, 13, 10, 0.94)),
+    #07110e;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.panel-kicker {
+  margin: 0 0 12px;
+  color: #51e39b;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.lobby-copy h2 {
+  max-width: 10ch;
+  margin: 0;
+  color: #effff5;
+  font-size: clamp(32px, 4vw, 54px);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.lobby-copy > p:last-child {
+  max-width: 36rem;
+  margin: 20px 0 0;
+  color: #8caf9e;
+  line-height: 1.7;
+}
+
+.lobby-form {
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  border: 1px solid #234c3c;
+  border-radius: 14px;
+  background: rgba(3, 9, 7, 0.72);
+}
+
+.lobby-form label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lobby-form label span {
+  color: #78a08e;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lobby-form input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #2c5947;
+  border-radius: 8px;
+  outline: none;
+  color: #e8fff1;
+  background: #07120e;
+}
+
+.lobby-form input:focus {
+  border-color: #51e39b;
+  box-shadow: 0 0 0 3px rgba(81, 227, 155, 0.13);
+}
+
+.room-code-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.room-code-row input {
+  font-family: monospace;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.room-code-row button,
+.primary-button,
+.leave-button {
+  border: 1px solid #386753;
+  border-radius: 8px;
+  color: #c9f7df;
+  background: #10291f;
+}
+
+.room-code-row button {
+  padding: 13px 16px;
+}
+
+.primary-button {
+  padding: 14px 18px;
+  border-color: #51e39b;
+  color: #04100b;
+  font-weight: 800;
+  background: #51e39b;
+}
+
+.form-error {
+  margin: 0;
+  color: #f3a39d;
+  font-family: monospace;
+  font-size: 12px;
+}
+
 .game-canvas {
   aspect-ratio: 16 / 9;
   width: 100%;
@@ -76,7 +206,7 @@ h1 {
 
 .status-panel {
   display: grid;
-  grid-template-columns: 160px 1fr;
+  grid-template-columns: 160px 1fr auto;
   gap: 24px;
   align-items: center;
   margin-top: 16px;
@@ -84,6 +214,17 @@ h1 {
   border: 1px solid #17352b;
   border-radius: 12px;
   background: rgba(8, 20, 16, 0.84);
+}
+
+.invite-code {
+  color: #7dffba;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.leave-button {
+  padding: 10px 13px;
 }
 
 .status-panel > div:first-child {
@@ -152,7 +293,17 @@ dd {
     padding-top: 32px;
   }
 
+  .lobby-panel,
   .status-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-panel {
+    gap: 28px;
+    padding: 28px 20px;
+  }
+
+  .room-code-row {
     grid-template-columns: 1fr;
   }
 

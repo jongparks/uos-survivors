@@ -1,6 +1,5 @@
 import Phaser from "phaser";
-
-import { TILE_SIZE } from "../config/gameplay";
+import { TILE_SIZE } from "@uos-survivors/shared";
 
 export const TEXTURE_KEYS = {
   map: "test-map-tiles",

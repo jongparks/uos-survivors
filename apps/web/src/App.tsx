@@ -1,5 +1,6 @@
+import { LobbyPanel } from "./components/LobbyPanel";
 import { GameCanvas } from "./game/GameCanvas";
-import { useServerConnection } from "./network/useServerConnection";
+import { useGameRoom } from "./network/useGameRoom";
 
 const STATUS_LABELS = {
   idle: "대기",
@@ -10,7 +11,7 @@ const STATUS_LABELS = {
 } as const;
 
 export function App() {
-  const connection = useServerConnection();
+  const connection = useGameRoom();
 
   return (
     <main className="app-shell">
@@ -20,31 +21,49 @@ export function App() {
         <p className="subtitle">UOS: University of Survivors</p>
       </header>
 
-      <section className="game-frame" aria-label="Phaser movement test">
-        <GameCanvas />
-      </section>
+      {connection.room ? (
+        <>
+          <section className="game-frame" aria-label="Phaser multiplayer game">
+            <GameCanvas room={connection.room} />
+          </section>
 
-      <section className="status-panel" aria-live="polite">
-        <div>
-          <span className={`status-dot status-${connection.state}`} />
-          <strong>{STATUS_LABELS[connection.state]}</strong>
-        </div>
-        <dl>
-          <div>
-            <dt>SERVER</dt>
-            <dd>{connection.endpoint}</dd>
-          </div>
-          <div>
-            <dt>ROOM</dt>
-            <dd>{connection.details?.roomId ?? "—"}</dd>
-          </div>
-          <div>
-            <dt>SESSION</dt>
-            <dd>{connection.details?.sessionId ?? "—"}</dd>
-          </div>
-        </dl>
-        {connection.error ? <p className="error-message">{connection.error}</p> : null}
-      </section>
+          <section className="status-panel" aria-live="polite">
+            <div>
+              <span className={`status-dot status-${connection.state}`} />
+              <strong>{STATUS_LABELS[connection.state]}</strong>
+            </div>
+            <dl>
+              <div>
+                <dt>INVITE CODE</dt>
+                <dd className="invite-code">{connection.room.roomId}</dd>
+              </div>
+              <div>
+                <dt>PLAYERS</dt>
+                <dd>{connection.playerCount} / 8</dd>
+              </div>
+              <div>
+                <dt>SESSION</dt>
+                <dd>{connection.room.sessionId}</dd>
+              </div>
+            </dl>
+            <button className="leave-button" onClick={() => void connection.leaveRoom()}>
+              방 나가기
+            </button>
+            {connection.error ? (
+              <p className="error-message" role="alert">
+                {connection.error}
+              </p>
+            ) : null}
+          </section>
+        </>
+      ) : (
+        <LobbyPanel
+          connecting={connection.state === "connecting"}
+          error={connection.error}
+          onCreateRoom={connection.createRoom}
+          onJoinRoom={connection.joinRoom}
+        />
+      )}
     </main>
   );
 }

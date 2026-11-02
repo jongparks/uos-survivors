@@ -1,6 +1,5 @@
 import Phaser from "phaser";
-
-import type { MovementInput } from "../movement/calculateVelocity";
+import type { MovementInput } from "@uos-survivors/shared";
 
 export class KeyboardInput {
   private readonly keys: Record<"up" | "down" | "left" | "right", Phaser.Input.Keyboard.Key>;

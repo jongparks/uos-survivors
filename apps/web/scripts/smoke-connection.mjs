@@ -4,11 +4,16 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { Client } from "@colyseus/sdk";
+import {
+  CLIENT_MESSAGES,
+  GAME_LIMITS,
+  ROOM_NAMES,
+} from "@uos-survivors/shared";
 
 const webDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(webDirectory, "../../..");
 const serverEntry = path.join(repositoryRoot, "apps/server/dist/index.js");
-const endpoint = "http://127.0.0.1:2568";
+const endpoint = "http://localhost:2568";
 
 const server = spawn(process.execPath, [serverEntry], {
   cwd: repositoryRoot,
@@ -40,18 +45,79 @@ async function waitForHealth() {
   throw new Error(`Server did not become healthy.\n${serverOutput}`);
 }
 
+async function waitUntil(predicate, message) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    if (predicate()) {
+      return;
+    }
+    await delay(50);
+  }
+
+  throw new Error(message);
+}
+
+const rooms = [];
 try {
   await waitForHealth();
-  const client = new Client(endpoint);
-  const room = await client.joinOrCreate("bootstrap");
+  const hostRoom = await new Client(endpoint).create(ROOM_NAMES.game, {
+    nickname: "Host",
+  });
+  rooms.push(hostRoom);
 
-  if (!room.sessionId || !room.roomId) {
+  if (!hostRoom.sessionId || !hostRoom.roomId) {
     throw new Error("Colyseus connection did not provide room identifiers");
   }
 
-  console.log(`Connection smoke test passed: room=${room.roomId}`);
-  await room.leave();
+  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(hostRoom.roomId)) {
+    throw new Error(`Invalid invite code: ${hostRoom.roomId}`);
+  }
+
+  const guestRooms = await Promise.all(
+    Array.from({ length: GAME_LIMITS.maxPlayersPerRoom - 1 }, (_, index) =>
+      new Client(endpoint).joinById(hostRoom.roomId, {
+        nickname: `Guest${index + 1}`,
+      }),
+    ),
+  );
+  rooms.push(...guestRooms);
+
+  await waitUntil(
+    () => hostRoom.state.players.size === GAME_LIMITS.maxPlayersPerRoom,
+    "Eight connected players were not synchronized",
+  );
+
+  const hostPlayer = hostRoom.state.players.get(hostRoom.sessionId);
+  if (!hostPlayer) {
+    throw new Error("Host player was not present in synchronized state");
+  }
+
+  const initialX = hostPlayer.x;
+  for (let tick = 0; tick < 10; tick += 1) {
+    hostRoom.send(CLIENT_MESSAGES.movement, {
+      up: false,
+      down: false,
+      left: false,
+      right: true,
+    });
+    await delay(35);
+  }
+  hostRoom.send(CLIENT_MESSAGES.movement, {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+  });
+
+  await waitUntil(
+    () => hostPlayer.x > initialX,
+    "Server-authoritative movement was not synchronized",
+  );
+
+  console.log(
+    `Multiplayer smoke test passed: room=${hostRoom.roomId}, players=${hostRoom.state.players.size}`,
+  );
 } finally {
+  await Promise.allSettled(rooms.map((room) => room.leave()));
   server.kill();
 }
 

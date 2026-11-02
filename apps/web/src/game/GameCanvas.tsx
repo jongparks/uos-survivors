@@ -1,9 +1,14 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 
-import { MovementScene } from "./scenes/MovementScene";
+import type { ConnectedGameRoom } from "../network/useGameRoom";
+import { MultiplayerScene } from "./scenes/MultiplayerScene";
 
-export function GameCanvas() {
+interface GameCanvasProps {
+  room: ConnectedGameRoom;
+}
+
+export function GameCanvas({ room }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -11,6 +16,7 @@ export function GameCanvas() {
       return undefined;
     }
 
+    const scene = new MultiplayerScene(room);
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: containerRef.current,
@@ -28,13 +34,14 @@ export function GameCanvas() {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
-      scene: [MovementScene],
+      scene: [scene],
     });
 
     return () => {
+      scene.dispose();
       game.destroy(true);
     };
-  }, []);
+  }, [room]);
 
   return <div className="game-canvas" ref={containerRef} />;
 }
