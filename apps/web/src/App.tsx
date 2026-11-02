@@ -42,6 +42,10 @@ export function App() {
                 <dd>{connection.playerCount} / 8</dd>
               </div>
               <div>
+                <dt>ACCESS</dt>
+                <dd>{connection.isPrivate ? "PRIVATE" : "PUBLIC"}</dd>
+              </div>
+              <div>
                 <dt>SESSION</dt>
                 <dd>{connection.room.sessionId}</dd>
               </div>
@@ -62,6 +66,7 @@ export function App() {
           error={connection.error}
           onCreateRoom={connection.createRoom}
           onJoinRoom={connection.joinRoom}
+          onQuickJoin={connection.quickJoin}
         />
       )}
     </main>

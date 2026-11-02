@@ -13,6 +13,7 @@ export type PlayerState = SchemaType<typeof PlayerState>;
 export const GameState = schema(
   {
     roomCode: t.string().default(""),
+    isPrivate: t.boolean().default(false),
     players: t.map(PlayerState),
   },
   "GameState",

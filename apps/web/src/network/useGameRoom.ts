@@ -2,8 +2,10 @@ import { Callbacks, Client, type Room } from "@colyseus/sdk";
 import {
   GAME_SERVER,
   ROOM_NAMES,
+  ROOM_VISIBILITY,
   type ConnectionState,
   type GameState,
+  type RoomVisibility,
 } from "@uos-survivors/shared";
 import { useCallback, useMemo, useRef, useState } from "react";
 
@@ -14,8 +16,10 @@ interface GameRoomConnection {
   state: ConnectionState;
   room: ConnectedGameRoom | null;
   playerCount: number;
+  isPrivate: boolean;
   error: string | null;
-  createRoom: (nickname: string) => Promise<void>;
+  createRoom: (nickname: string, visibility: RoomVisibility) => Promise<void>;
+  quickJoin: (nickname: string) => Promise<void>;
   joinRoom: (roomCode: string, nickname: string) => Promise<void>;
   leaveRoom: () => Promise<void>;
 }
@@ -34,6 +38,7 @@ export function useGameRoom(): GameRoomConnection {
   const [state, setState] = useState<ConnectionState>("idle");
   const [room, setRoom] = useState<ConnectedGameRoom | null>(null);
   const [playerCount, setPlayerCount] = useState(0);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const roomRef = useRef<ConnectedGameRoom | null>(null);
   const callbackDisposersRef = useRef<Array<() => void>>([]);
@@ -53,11 +58,14 @@ export function useGameRoom(): GameRoomConnection {
 
       const callbacks = Callbacks.get(nextRoom);
       const updatePlayerCount = () => setPlayerCount(nextRoom.state.players?.size ?? 0);
+      const updatePrivacy = () => setIsPrivate(nextRoom.state.isPrivate ?? false);
       callbackDisposersRef.current = [
         callbacks.onAdd("players", updatePlayerCount),
         callbacks.onRemove("players", updatePlayerCount),
+        callbacks.onChange(nextRoom.state, updatePrivacy),
       ];
       updatePlayerCount();
+      updatePrivacy();
 
       nextRoom.onLeave(() => {
         if (roomRef.current !== nextRoom) {
@@ -68,6 +76,7 @@ export function useGameRoom(): GameRoomConnection {
         roomRef.current = null;
         setRoom(null);
         setPlayerCount(0);
+        setIsPrivate(false);
         setState("disconnected");
       });
     },
@@ -90,8 +99,22 @@ export function useGameRoom(): GameRoomConnection {
   );
 
   const createRoom = useCallback(
+    async (nickname: string, visibility: RoomVisibility) => {
+      await connect(() =>
+        client.create<GameState>(ROOM_NAMES.game, { nickname, visibility }),
+      );
+    },
+    [client, connect],
+  );
+
+  const quickJoin = useCallback(
     async (nickname: string) => {
-      await connect(() => client.create<GameState>(ROOM_NAMES.game, { nickname }));
+      await connect(() =>
+        client.joinOrCreate<GameState>(ROOM_NAMES.game, {
+          nickname,
+          visibility: ROOM_VISIBILITY.public,
+        }),
+      );
     },
     [client, connect],
   );
@@ -111,6 +134,7 @@ export function useGameRoom(): GameRoomConnection {
     clearCallbacks();
     setRoom(null);
     setPlayerCount(0);
+    setIsPrivate(false);
     setState("idle");
     setError(null);
 
@@ -124,8 +148,10 @@ export function useGameRoom(): GameRoomConnection {
     state,
     room,
     playerCount,
+    isPrivate,
     error,
     createRoom,
+    quickJoin,
     joinRoom,
     leaveRoom,
   };

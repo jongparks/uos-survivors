@@ -10,10 +10,12 @@ import {
   PLAYER_SPEED,
   PLAYER_SPAWNS,
   PlayerState,
+  ROOM_VISIBILITY,
   moveWithTestMapCollision,
   parseMovementInput,
   tileToWorld,
   type MovementInput,
+  type RoomVisibility,
 } from "@uos-survivors/shared";
 
 import { generateRoomCodeCandidate, normalizeNickname } from "../config/playerIdentity.js";
@@ -25,8 +27,9 @@ interface BufferedInput {
   receivedAt: number;
 }
 
-interface JoinOptions {
+interface RoomOptions {
   nickname?: unknown;
+  visibility?: RoomVisibility;
 }
 
 export class GameRoom extends Room<{ state: GameState }> {
@@ -52,13 +55,15 @@ export class GameRoom extends Room<{ state: GameState }> {
     },
   };
 
-  async onCreate(): Promise<void> {
+  async onCreate(options: RoomOptions): Promise<void> {
     this.roomId = await this.generateRoomCode();
     this.state.roomCode = this.roomId;
+    this.state.isPrivate = options.visibility === ROOM_VISIBILITY.private;
+    await this.setPrivate(this.state.isPrivate);
     this.setFixedTimestep((context) => this.simulate(context), NETWORK_RATE.simulationHz);
   }
 
-  onJoin(client: Client, options: JoinOptions): void {
+  onJoin(client: Client, options: RoomOptions): void {
     const player = new PlayerState();
     const spawn = PLAYER_SPAWNS[this.state.players.size % PLAYER_SPAWNS.length] ?? PLAYER_SPAWNS[0];
 

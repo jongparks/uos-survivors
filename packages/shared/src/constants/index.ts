@@ -7,6 +7,13 @@ export const ROOM_NAMES = {
   game: "game",
 } as const;
 
+export const ROOM_VISIBILITY = {
+  public: "public",
+  private: "private",
+} as const;
+
+export type RoomVisibility = (typeof ROOM_VISIBILITY)[keyof typeof ROOM_VISIBILITY];
+
 export const GAME_LIMITS = {
   maxPlayersPerRoom: 8,
   nicknameMinLength: 2,

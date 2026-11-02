@@ -169,6 +169,7 @@ h1 {
 
 .room-code-row button,
 .primary-button,
+.create-button,
 .leave-button {
   border: 1px solid #386753;
   border-radius: 8px;
@@ -186,6 +187,61 @@ h1 {
   color: #04100b;
   font-weight: 800;
   background: #51e39b;
+}
+
+.create-button {
+  padding: 14px 18px;
+  font-weight: 700;
+}
+
+.visibility-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.visibility-picker legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+  padding: 0;
+  color: #78a08e;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.visibility-picker button {
+  display: grid;
+  gap: 4px;
+  padding: 12px 13px;
+  border: 1px solid #244b3b;
+  border-radius: 8px;
+  text-align: left;
+  color: #a8c9b9;
+  background: #081510;
+}
+
+.visibility-picker button[aria-pressed="true"] {
+  border-color: #51e39b;
+  color: #e8fff1;
+  background: rgba(26, 83, 60, 0.42);
+  box-shadow: 0 0 0 2px rgba(81, 227, 155, 0.09);
+}
+
+.visibility-picker small {
+  color: #688a7a;
+  font-size: 11px;
+}
+
+.lobby-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .form-error {
@@ -254,7 +310,7 @@ h1 {
 
 dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
   margin: 0;
 }
@@ -304,6 +360,10 @@ dd {
   }
 
   .room-code-row {
+    grid-template-columns: 1fr;
+  }
+
+  .lobby-actions {
     grid-template-columns: 1fr;
   }
 
