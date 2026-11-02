@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-import type { PlayerState } from "@uos-survivors/shared";
+import { PLAYER_ROLE, type PlayerState } from "@uos-survivors/shared";
 
 import { TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
 
@@ -8,15 +8,16 @@ export class NetworkPlayerView {
   readonly sprite: Phaser.GameObjects.Sprite;
   private readonly label: Phaser.GameObjects.Text;
   private readonly scene: Phaser.Scene;
+  private readonly isLocalPlayer: boolean;
   private stopTimer?: Phaser.Time.TimerEvent;
   private useLeftStep = false;
   private destroyed = false;
 
   constructor(scene: Phaser.Scene, player: PlayerState, isLocalPlayer: boolean) {
     this.scene = scene;
+    this.isLocalPlayer = isLocalPlayer;
 
     this.sprite = scene.add.sprite(player.x, player.y, TEXTURE_KEYS.playerIdle).setDepth(10);
-    this.sprite.setTint(isLocalPlayer ? 0xffffff : 0x9bb7ff);
     this.label = scene.add
       .text(player.x, player.y - 34, player.nickname, {
         color: isLocalPlayer ? "#dffff0" : "#b9c9ff",
@@ -39,10 +40,22 @@ export class NetworkPlayerView {
     const movedLeft = x < previousX;
 
     this.sprite.setPosition(x, y);
+    this.sprite.setTint(
+      player.role === PLAYER_ROLE.zombie
+        ? 0xff6f68
+        : this.isLocalPlayer
+          ? 0xffffff
+          : 0x9bb7ff,
+    );
     this.sprite.setAlpha(player.connected ? 1 : 0.42);
     this.label.setPosition(x, y - 34);
     this.label.setAlpha(player.connected ? 1 : 0.62);
-    this.label.setText(player.connected ? player.nickname : `${player.nickname} · 재접속 중`);
+    const roleLabel = player.role === PLAYER_ROLE.zombie ? "좀비" : "인간";
+    this.label.setText(
+      player.connected
+        ? `[${roleLabel}] ${player.nickname}`
+        : `[${roleLabel}] ${player.nickname} · 재접속 중`,
+    );
 
     if (!moved) {
       return;

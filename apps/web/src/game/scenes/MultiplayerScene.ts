@@ -2,9 +2,11 @@ import { Callbacks, Predict, type InputHandle } from "@colyseus/sdk";
 import Phaser from "phaser";
 
 import {
+  GAME_PHASE,
   MovementInput,
   NETWORK_RATE,
   PLAYER_SPEED,
+  PLAYER_ROLE,
   TEST_MAP_DATA,
   TEST_MAP_HEIGHT,
   TEST_MAP_WIDTH,
@@ -26,6 +28,8 @@ export class MultiplayerScene extends Phaser.Scene {
   private keyboardInput?: KeyboardInput;
   private movementInput?: InputHandle<MovementInput>;
   private predict?: Predict;
+  private matchStatusText?: Phaser.GameObjects.Text;
+  private roleStatusText?: Phaser.GameObjects.Text;
   private disposed = false;
 
   constructor(room: ConnectedGameRoom) {
@@ -61,7 +65,7 @@ export class MultiplayerScene extends Phaser.Scene {
     );
 
     this.add
-      .text(20, 18, `ROOM ${this.room.roomId}  ·  WASD MOVE`, {
+      .text(20, 18, `ROOM ${this.room.roomId}  ·  WASD MOVE  ·  SPACE ATTACK`, {
         color: "#bfffe1",
         fontFamily: "monospace",
         fontSize: "14px",
@@ -72,8 +76,28 @@ export class MultiplayerScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(100);
 
+    this.matchStatusText = this.add
+      .text(20, 80, "WAITING FOR PLAYERS", {
+        color: "#f0c66b",
+        fontFamily: "monospace",
+        fontSize: "11px",
+        fontStyle: "bold",
+      })
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    this.roleStatusText = this.add
+      .text(20, 100, "ROLE · HUMAN", {
+        color: "#b9c9ff",
+        fontFamily: "monospace",
+        fontSize: "11px",
+        fontStyle: "bold",
+      })
+      .setScrollFactor(0)
+      .setDepth(100);
+
     this.add
-      .text(20, 58, "PHASE 3 · PREDICTION · RECONCILIATION · INTERPOLATION", {
+      .text(20, 58, "PHASE 4 · SERVER AUTHORITATIVE INFECTION", {
         color: "#6f9d89",
         fontFamily: "monospace",
         fontSize: "11px",
@@ -91,11 +115,14 @@ export class MultiplayerScene extends Phaser.Scene {
 
     const inputSteps = this.predict.tick(time);
 
-    for (let step = 0; step < inputSteps; step += 1) {
-      const movement = this.keyboardInput.readMovement();
-      this.movementInput.data.moveX = movement.moveX as -1 | 0 | 1;
-      this.movementInput.data.moveY = movement.moveY as -1 | 0 | 1;
-      this.movementInput.send();
+    if (this.room.state.phase !== GAME_PHASE.finished) {
+      for (let step = 0; step < inputSteps; step += 1) {
+        const controls = this.keyboardInput.readControls();
+        this.movementInput.data.moveX = controls.moveX as -1 | 0 | 1;
+        this.movementInput.data.moveY = controls.moveY as -1 | 0 | 1;
+        this.movementInput.data.attack = controls.attack;
+        this.movementInput.send();
+      }
     }
 
     this.renderPlayers();
@@ -169,7 +196,37 @@ export class MultiplayerScene extends Phaser.Scene {
         this.predict?.value(player, "x") ?? player.x,
         this.predict?.value(player, "y") ?? player.y,
       );
+
+      if (sessionId === this.room.sessionId) {
+        this.updateLocalHud(player);
+      }
     });
+  }
+
+  private updateLocalHud(player: PlayerState): void {
+    const phaseLabel =
+      this.room.state.phase === GAME_PHASE.waiting
+        ? "WAITING · NEED 2 PLAYERS"
+        : this.room.state.phase === GAME_PHASE.finished
+          ? "MATCH FINISHED · ZOMBIE WIN"
+          : "MATCH ACTIVE · INFECTION SPREADING";
+    const isZombie = player.role === PLAYER_ROLE.zombie;
+    const attackLockSeconds = Math.max(0, player.attackLockedUntil - Date.now()) / 1_000;
+
+    this.matchStatusText?.setText(phaseLabel);
+    this.matchStatusText?.setColor(
+      this.room.state.phase === GAME_PHASE.finished ? "#ff746c" : "#f0c66b",
+    );
+    this.roleStatusText?.setText(
+      !isZombie
+        ? "ROLE · HUMAN · SURVIVE"
+        : this.room.state.phase === GAME_PHASE.finished
+          ? "ROLE · ZOMBIE · MATCH OVER"
+          : attackLockSeconds > 0
+            ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
+            : "ROLE · ZOMBIE · SPACE TO ATTACK",
+    );
+    this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
   private removePlayer(sessionId: string): void {
@@ -186,6 +243,7 @@ export class MultiplayerScene extends Phaser.Scene {
     if (this.movementInput) {
       this.movementInput.data.moveX = 0;
       this.movementInput.data.moveY = 0;
+      this.movementInput.data.attack = false;
       this.movementInput.send();
     }
     this.predict?.dispose();

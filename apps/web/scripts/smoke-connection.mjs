@@ -5,10 +5,14 @@ import path from "node:path";
 
 import { Client } from "@colyseus/sdk";
 import {
+  COMBAT_RULES,
+  GAME_PHASE,
   GAME_LIMITS,
+  MATCH_WINNER,
   MovementInput,
   NETWORK_RATE,
   PLAYER_SPEED,
+  PLAYER_ROLE,
   ROOM_NAMES,
   ROOM_VISIBILITY,
 } from "@uos-survivors/shared";
@@ -33,7 +37,7 @@ server.stderr.on("data", (chunk) => {
 });
 
 async function waitForHealth() {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
       const response = await fetch(`${endpoint}/health`);
       if (response.ok) {
@@ -128,6 +132,13 @@ try {
     "Private invite-code players were not synchronized",
   );
 
+  if (
+    publicHostRoom.state.players.get(publicHostRoom.sessionId)?.role !== PLAYER_ROLE.zombie ||
+    publicHostRoom.state.players.get(quickGuestRoom.sessionId)?.role !== PLAYER_ROLE.human
+  ) {
+    throw new Error("Initial zombie and human roles were not assigned");
+  }
+
   const hostPlayer = publicHostRoom.state.players.get(publicHostRoom.sessionId);
   if (!hostPlayer) {
     throw new Error("Host player was not present in synchronized state");
@@ -186,6 +197,39 @@ try {
   );
   const acknowledgedInputs = hostInput.lastProcessed;
 
+  const privateInput = privateHostRoom.input({ type: MovementInput, mode: "reliable" });
+  for (let tick = 0; tick < 5; tick += 1) {
+    privateInput.data.moveX = 1;
+    privateInput.data.moveY = 0;
+    privateInput.data.attack = false;
+    privateInput.send();
+    await delay(35);
+  }
+
+  const infectionStartedAt = Date.now();
+  privateInput.data.moveX = 0;
+  privateInput.data.attack = true;
+  privateInput.send();
+  await delay(35);
+  privateInput.data.attack = false;
+  privateInput.send();
+
+  const infectedPrivateGuest = privateHostRoom.state.players.get(invitedPrivateGuest.sessionId);
+  await waitUntil(
+    () => infectedPrivateGuest?.role === PLAYER_ROLE.zombie,
+    "Zombie attack did not immediately infect the human",
+  );
+
+  if (
+    !infectedPrivateGuest ||
+    infectedPrivateGuest.attackLockedUntil <
+      infectionStartedAt + COMBAT_RULES.infectionAttackLockMs - 250 ||
+    privateHostRoom.state.phase !== GAME_PHASE.finished ||
+    privateHostRoom.state.winner !== MATCH_WINNER.zombie
+  ) {
+    throw new Error("Infection lock or all-infected victory state was invalid");
+  }
+
   const publicSessionId = publicHostRoom.sessionId;
   let dropped = false;
   let reconnected = false;
@@ -233,7 +277,7 @@ try {
   }
 
   console.log(
-    `Network smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${resumedPrivateRoom.roomId} (${resumedPrivateRoom.state.players.size}), ack=${acknowledgedInputs}`,
+    `Phase 4 smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${resumedPrivateRoom.roomId} (${resumedPrivateRoom.state.players.size}), ack=${acknowledgedInputs}, infectionLock=${COMBAT_RULES.infectionAttackLockMs}ms`,
   );
 } finally {
   await Promise.allSettled(rooms.map((room) => room.leave()));

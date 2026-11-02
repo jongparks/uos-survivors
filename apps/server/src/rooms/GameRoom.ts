@@ -2,13 +2,17 @@ import type { Client, StepContext } from "colyseus";
 import { Room } from "colyseus";
 
 import {
+  COMBAT_RULES,
   GAME_LIMITS,
+  GAME_PHASE,
   GameState,
+  MATCH_WINNER,
   MovementInput,
   NETWORK_RATE,
   PLAYER_SPEED,
   PLAYER_SPAWNS,
   PlayerState,
+  PLAYER_ROLE,
   RECONNECTION,
   ROOM_VISIBILITY,
   applyMovementWithTestMapCollision,
@@ -17,6 +21,8 @@ import {
 } from "@uos-survivors/shared";
 
 import { generateRoomCodeCandidate, normalizeNickname } from "../config/playerIdentity.js";
+import { resolveZombieAttack } from "../systems/combatSystem.js";
+import { finishIfAllHumansInfected, infectHuman } from "../systems/infectionSystem.js";
 
 const INVITE_CODE_CHANNEL = "$uos-survivors-room-codes";
 
@@ -54,9 +60,11 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
     player.nickname = normalizeNickname(options.nickname) ?? `생존자${this.state.players.size + 1}`;
     player.connected = true;
+    player.role = PLAYER_ROLE.human;
     player.x = tileToWorld(spawn.tileX);
     player.y = tileToWorld(spawn.tileY);
     this.state.players.set(client.sessionId, player);
+    this.tryStartMatch();
   }
 
   onDrop(client: Client): void {
@@ -79,6 +87,29 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
   onLeave(client: Client): void {
     this.state.players.delete(client.sessionId);
+
+    if (this.state.players.size < COMBAT_RULES.minimumPlayersToStart) {
+      this.resetToWaiting();
+      return;
+    }
+
+    if (
+      this.state.phase === GAME_PHASE.playing &&
+      !Array.from(this.state.players.values()).some(
+        (player) => player.role === PLAYER_ROLE.zombie,
+      )
+    ) {
+      const replacement = this.state.players.entries().next().value;
+      if (replacement) {
+        const [sessionId, player] = replacement;
+        player.role = PLAYER_ROLE.zombie;
+        player.attackLockedUntil = 0;
+        player.nextAttackAt = 0;
+        this.state.initialZombieSessionId = sessionId;
+      }
+    }
+
+    finishIfAllHumansInfected(this.state);
   }
 
   async onDispose(): Promise<void> {
@@ -86,8 +117,21 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   private simulate(context: StepContext): void {
+    const now = Date.now();
+
     this.state.players.forEach((player, sessionId) => {
-      const input = this.inputs.get(sessionId).next();
+      const inputChannel = this.inputs.get(sessionId);
+      const input = inputChannel.next();
+
+      if (this.state.phase === GAME_PHASE.finished) {
+        return;
+      }
+
+      if (input.moveX !== 0 || input.moveY !== 0) {
+        const magnitude = Math.hypot(input.moveX, input.moveY);
+        player.facingX = input.moveX / magnitude;
+        player.facingY = input.moveY / magnitude;
+      }
 
       applyMovementWithTestMapCollision(
         player,
@@ -95,6 +139,46 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         PLAYER_SPEED,
         context.dt,
       );
+
+      if (input.attack && !inputChannel.wasIdle) {
+        const targetSessionId = resolveZombieAttack(this.state, sessionId, now);
+        if (targetSessionId && infectHuman(this.state, targetSessionId, now)) {
+          finishIfAllHumansInfected(this.state);
+        }
+      }
+    });
+  }
+
+  private tryStartMatch(): void {
+    if (
+      this.state.phase !== GAME_PHASE.waiting ||
+      this.state.players.size < COMBAT_RULES.minimumPlayersToStart
+    ) {
+      return;
+    }
+
+    const initialZombie = this.state.players.entries().next().value;
+    if (!initialZombie) {
+      return;
+    }
+
+    const [sessionId, player] = initialZombie;
+    player.role = PLAYER_ROLE.zombie;
+    player.attackLockedUntil = 0;
+    player.nextAttackAt = 0;
+    this.state.initialZombieSessionId = sessionId;
+    this.state.winner = MATCH_WINNER.none;
+    this.state.phase = GAME_PHASE.playing;
+  }
+
+  private resetToWaiting(): void {
+    this.state.phase = GAME_PHASE.waiting;
+    this.state.winner = MATCH_WINNER.none;
+    this.state.initialZombieSessionId = "";
+    this.state.players.forEach((player) => {
+      player.role = PLAYER_ROLE.human;
+      player.attackLockedUntil = 0;
+      player.nextAttackAt = 0;
     });
   }
 
