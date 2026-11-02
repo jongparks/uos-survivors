@@ -1,15 +1,18 @@
 import { Callbacks, Client, type Room } from "@colyseus/sdk";
 import {
   GAME_SERVER,
+  RECONNECTION,
   ROOM_NAMES,
   ROOM_VISIBILITY,
   type ConnectionState,
   type GameState,
   type RoomVisibility,
 } from "@uos-survivors/shared";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type ConnectedGameRoom = Room<GameState>;
+
+const RECONNECTION_STORAGE_PREFIX = "uos-survivors:reconnection:";
 
 interface GameRoomConnection {
   endpoint: string;
@@ -34,6 +37,7 @@ function formatConnectionError(error: unknown): string {
 
 export function useGameRoom(): GameRoomConnection {
   const endpoint = import.meta.env.VITE_GAME_SERVER_URL ?? GAME_SERVER.defaultUrl;
+  const reconnectionStorageKey = `${RECONNECTION_STORAGE_PREFIX}${endpoint}`;
   const client = useMemo(() => new Client(endpoint), [endpoint]);
   const [state, setState] = useState<ConnectionState>("idle");
   const [room, setRoom] = useState<ConnectedGameRoom | null>(null);
@@ -42,6 +46,7 @@ export function useGameRoom(): GameRoomConnection {
   const [error, setError] = useState<string | null>(null);
   const roomRef = useRef<ConnectedGameRoom | null>(null);
   const callbackDisposersRef = useRef<Array<() => void>>([]);
+  const resumeAttemptedRef = useRef(false);
 
   const clearCallbacks = useCallback(() => {
     callbackDisposersRef.current.forEach((dispose) => dispose());
@@ -52,6 +57,10 @@ export function useGameRoom(): GameRoomConnection {
     (nextRoom: ConnectedGameRoom) => {
       clearCallbacks();
       roomRef.current = nextRoom;
+      nextRoom.reconnection.maxRetries = RECONNECTION.maxRetries;
+      nextRoom.reconnection.minUptime = RECONNECTION.minUptimeMs;
+      nextRoom.reconnection.maxDelay = RECONNECTION.maxDelayMs;
+      sessionStorage.setItem(reconnectionStorageKey, nextRoom.reconnectionToken);
       setRoom(nextRoom);
       setState("connected");
       setError(null);
@@ -67,12 +76,29 @@ export function useGameRoom(): GameRoomConnection {
       updatePlayerCount();
       updatePrivacy();
 
+      nextRoom.onDrop(() => {
+        if (roomRef.current === nextRoom) {
+          setState("reconnecting");
+        }
+      });
+
+      nextRoom.onReconnect(() => {
+        if (roomRef.current !== nextRoom) {
+          return;
+        }
+
+        sessionStorage.setItem(reconnectionStorageKey, nextRoom.reconnectionToken);
+        setState("connected");
+        setError(null);
+      });
+
       nextRoom.onLeave(() => {
         if (roomRef.current !== nextRoom) {
           return;
         }
 
         clearCallbacks();
+        sessionStorage.removeItem(reconnectionStorageKey);
         roomRef.current = null;
         setRoom(null);
         setPlayerCount(0);
@@ -80,7 +106,7 @@ export function useGameRoom(): GameRoomConnection {
         setState("disconnected");
       });
     },
-    [clearCallbacks],
+    [clearCallbacks, reconnectionStorageKey],
   );
 
   const connect = useCallback(
@@ -128,6 +154,29 @@ export function useGameRoom(): GameRoomConnection {
     [client, connect],
   );
 
+  useEffect(() => {
+    if (resumeAttemptedRef.current) {
+      return;
+    }
+
+    resumeAttemptedRef.current = true;
+    const reconnectionToken = sessionStorage.getItem(reconnectionStorageKey);
+
+    if (!reconnectionToken) {
+      return;
+    }
+
+    setState("connecting");
+    void client
+      .reconnect<GameState>(reconnectionToken)
+      .then(attachRoom)
+      .catch(() => {
+        sessionStorage.removeItem(reconnectionStorageKey);
+        setState("idle");
+        setError("이전 게임 세션이 만료되었습니다. 다시 방에 입장해 주세요.");
+      });
+  }, [attachRoom, client, reconnectionStorageKey]);
+
   const leaveRoom = useCallback(async () => {
     const activeRoom = roomRef.current;
     roomRef.current = null;
@@ -137,11 +186,12 @@ export function useGameRoom(): GameRoomConnection {
     setIsPrivate(false);
     setState("idle");
     setError(null);
+    sessionStorage.removeItem(reconnectionStorageKey);
 
     if (activeRoom) {
       await activeRoom.leave();
     }
-  }, [clearCallbacks]);
+  }, [clearCallbacks, reconnectionStorageKey]);
 
   return {
     endpoint,

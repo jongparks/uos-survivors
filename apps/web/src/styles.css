@@ -302,6 +302,11 @@ h1 {
   background: currentColor;
 }
 
+.status-reconnecting {
+  color: #f0c66b;
+  background: currentColor;
+}
+
 .status-error,
 .status-disconnected {
   color: #f26e64;

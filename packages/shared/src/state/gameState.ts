@@ -3,6 +3,7 @@ import { schema, t, type SchemaType } from "@colyseus/schema";
 export const PlayerState = schema(
   {
     nickname: t.string().default(""),
+    connected: t.boolean().default(true),
     x: t.float32().default(0),
     y: t.float32().default(0),
   },

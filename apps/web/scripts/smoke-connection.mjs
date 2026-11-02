@@ -5,8 +5,10 @@ import path from "node:path";
 
 import { Client } from "@colyseus/sdk";
 import {
-  CLIENT_MESSAGES,
   GAME_LIMITS,
+  MovementInput,
+  NETWORK_RATE,
+  PLAYER_SPEED,
   ROOM_NAMES,
   ROOM_VISIBILITY,
 } from "@uos-survivors/shared";
@@ -131,30 +133,107 @@ try {
     throw new Error("Host player was not present in synchronized state");
   }
 
+  const hostInput = publicHostRoom.input({ type: MovementInput, mode: "reliable" });
+  if (hostInput.tickRate !== NETWORK_RATE.simulationHz) {
+    throw new Error(`Unexpected advertised input rate: ${hostInput.tickRate}`);
+  }
+
+  const beforeSanitizedInput = hostPlayer.x;
+  const beforeSanitizedInputY = hostPlayer.y;
+  hostInput.data.moveX = 127;
+  hostInput.data.moveY = 1;
+  hostInput.send();
+
+  await waitUntil(
+    () => hostPlayer.x > beforeSanitizedInput && hostPlayer.y > beforeSanitizedInputY,
+    "Sanitized movement input was not processed",
+  );
+
+  const maxSingleStepDistance = PLAYER_SPEED / NETWORK_RATE.simulationHz + 0.5;
+  const sanitizedDeltaX = hostPlayer.x - beforeSanitizedInput;
+  const sanitizedDeltaY = hostPlayer.y - beforeSanitizedInputY;
+  if (
+    Math.hypot(sanitizedDeltaX, sanitizedDeltaY) > maxSingleStepDistance ||
+    Math.abs(sanitizedDeltaX - sanitizedDeltaY) > 0.5
+  ) {
+    throw new Error("Out-of-range movement input bypassed server sanitization");
+  }
+
+  const inputSequences = [];
   const initialX = hostPlayer.x;
   for (let tick = 0; tick < 10; tick += 1) {
-    publicHostRoom.send(CLIENT_MESSAGES.movement, {
-      up: false,
-      down: false,
-      left: false,
-      right: true,
-    });
+    hostInput.data.moveX = 1;
+    hostInput.data.moveY = 0;
+    inputSequences.push(hostInput.send());
     await delay(35);
   }
-  publicHostRoom.send(CLIENT_MESSAGES.movement, {
-    up: false,
-    down: false,
-    left: false,
-    right: false,
-  });
+  hostInput.data.moveX = 0;
+  hostInput.data.moveY = 0;
+  inputSequences.push(hostInput.send());
 
   await waitUntil(
     () => hostPlayer.x > initialX,
     "Server-authoritative movement was not synchronized",
   );
 
+  if (inputSequences.some((sequence, index) => sequence <= (inputSequences[index - 1] ?? 0))) {
+    throw new Error("Input sequences were not strictly increasing");
+  }
+
+  await waitUntil(
+    () => hostInput.lastProcessed >= hostInput.sentCount,
+    "Server did not acknowledge all sequenced inputs",
+  );
+  const acknowledgedInputs = hostInput.lastProcessed;
+
+  const publicSessionId = publicHostRoom.sessionId;
+  let dropped = false;
+  let reconnected = false;
+  publicHostRoom.reconnection.minUptime = 0;
+  publicHostRoom.onDrop(() => {
+    dropped = true;
+  });
+  publicHostRoom.onReconnect(() => {
+    reconnected = true;
+  });
+  void publicHostRoom.leave(false);
+
+  await waitUntil(() => dropped, "Automatic reconnection did not detect the drop");
+  await waitUntil(() => reconnected, "Automatic reconnection did not restore the room");
+
+  if (
+    publicHostRoom.sessionId !== publicSessionId ||
+    publicHostRoom.state.players.size !== GAME_LIMITS.maxPlayersPerRoom
+  ) {
+    throw new Error("Automatic reconnection duplicated or removed a player");
+  }
+
+  const privateSessionId = privateHostRoom.sessionId;
+  const privateReconnectionToken = privateHostRoom.reconnectionToken;
+  privateHostRoom.reconnection.enabled = false;
+  await privateHostRoom.leave(false);
+
+  await waitUntil(
+    () => invitedPrivateGuest.state.players.get(privateSessionId)?.connected === false,
+    "Dropped private player was not marked disconnected",
+  );
+
+  const resumedPrivateRoom = await new Client(endpoint).reconnect(privateReconnectionToken);
+  rooms.push(resumedPrivateRoom);
+  await waitUntil(
+    () => invitedPrivateGuest.state.players.get(privateSessionId)?.connected === true,
+    "Manually reconnected private player was not restored",
+  );
+
+  if (
+    resumedPrivateRoom.sessionId !== privateSessionId ||
+    resumedPrivateRoom.state.players.size !== 2
+  ) {
+    throw new Error("Manual reconnection duplicated or removed a player");
+  }
+
   console.log(
-    `Matchmaking smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${privateHostRoom.roomId} (${privateHostRoom.state.players.size})`,
+    `Network smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${resumedPrivateRoom.roomId} (${resumedPrivateRoom.state.players.size}), ack=${acknowledgedInputs}`,
   );
 } finally {
   await Promise.allSettled(rooms.map((room) => room.leave()));

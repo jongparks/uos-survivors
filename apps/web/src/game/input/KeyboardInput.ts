@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import type { MovementInput } from "@uos-survivors/shared";
+import type { MovementAxes } from "@uos-survivors/shared";
 
 export class KeyboardInput {
   private readonly keys: Record<"up" | "down" | "left" | "right", Phaser.Input.Keyboard.Key>;
@@ -17,12 +17,10 @@ export class KeyboardInput {
     }) as Record<"up" | "down" | "left" | "right", Phaser.Input.Keyboard.Key>;
   }
 
-  readMovement(): MovementInput {
+  readMovement(): MovementAxes {
     return {
-      up: this.keys.up.isDown,
-      down: this.keys.down.isDown,
-      left: this.keys.left.isDown,
-      right: this.keys.right.isDown,
+      moveX: Number(this.keys.right.isDown) - Number(this.keys.left.isDown),
+      moveY: Number(this.keys.down.isDown) - Number(this.keys.up.isDown),
     };
   }
 }

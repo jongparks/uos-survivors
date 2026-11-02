@@ -7,7 +7,7 @@ import { IDLE_MOVEMENT_INPUT } from "../messages/index.js";
 describe("authoritative movement", () => {
   it("normalizes diagonal movement", () => {
     const velocity = calculateVelocity(
-      { ...IDLE_MOVEMENT_INPUT, up: true, right: true },
+      { moveX: 1, moveY: -1 },
       PLAYER_SPEED,
     );
 
@@ -18,7 +18,7 @@ describe("authoritative movement", () => {
     const start = { x: tileToWorld(3), y: tileToWorld(3) };
     const result = moveWithTestMapCollision(
       start,
-      { ...IDLE_MOVEMENT_INPUT, right: true },
+      { ...IDLE_MOVEMENT_INPUT, moveX: 1 },
       PLAYER_SPEED,
       1 / 30,
     );
@@ -34,7 +34,7 @@ describe("authoritative movement", () => {
     for (let tick = 0; tick < 60; tick += 1) {
       position = moveWithTestMapCollision(
         position,
-        { ...IDLE_MOVEMENT_INPUT, left: true },
+        { ...IDLE_MOVEMENT_INPUT, moveX: -1 },
         PLAYER_SPEED,
         1 / 30,
       );

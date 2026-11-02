@@ -6,7 +6,7 @@ import {
   TILE_SIZE,
 } from "./config.js";
 import { getTestMapTile } from "./map.js";
-import type { MovementInput } from "../messages/index.js";
+import type { MovementAxes } from "../messages/index.js";
 
 export interface Position {
   x: number;
@@ -18,9 +18,9 @@ export interface Velocity {
   y: number;
 }
 
-export function calculateVelocity(input: MovementInput, speed: number): Velocity {
-  const horizontal = Number(input.right) - Number(input.left);
-  const vertical = Number(input.down) - Number(input.up);
+export function calculateVelocity(input: MovementAxes, speed: number): Velocity {
+  const horizontal = input.moveX;
+  const vertical = input.moveY;
 
   if (horizontal === 0 && vertical === 0) {
     return { x: 0, y: 0 };
@@ -54,7 +54,7 @@ export function collidesWithTestMap(x: number, y: number): boolean {
 
 export function moveWithTestMapCollision(
   position: Position,
-  input: MovementInput,
+  input: MovementAxes,
   speed: number,
   deltaSeconds: number,
 ): Position {
@@ -69,5 +69,17 @@ export function moveWithTestMapCollision(
   const resolvedY = collidesWithTestMap(resolvedX, nextY) ? position.y : nextY;
 
   return { x: resolvedX, y: resolvedY };
+}
+
+export function applyMovementWithTestMapCollision(
+  position: Position,
+  input: MovementAxes,
+  speed: number,
+  deltaSeconds: number,
+): void {
+  const nextPosition = moveWithTestMapCollision(position, input, speed, deltaSeconds);
+
+  position.x = nextPosition.x;
+  position.y = nextPosition.y;
 }
 

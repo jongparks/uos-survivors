@@ -2,19 +2,17 @@ import type { Client, StepContext } from "colyseus";
 import { Room } from "colyseus";
 
 import {
-  CLIENT_MESSAGES,
   GAME_LIMITS,
   GameState,
-  IDLE_MOVEMENT_INPUT,
+  MovementInput,
   NETWORK_RATE,
   PLAYER_SPEED,
   PLAYER_SPAWNS,
   PlayerState,
+  RECONNECTION,
   ROOM_VISIBILITY,
-  moveWithTestMapCollision,
-  parseMovementInput,
+  applyMovementWithTestMapCollision,
   tileToWorld,
-  type MovementInput,
   type RoomVisibility,
 } from "@uos-survivors/shared";
 
@@ -22,38 +20,25 @@ import { generateRoomCodeCandidate, normalizeNickname } from "../config/playerId
 
 const INVITE_CODE_CHANNEL = "$uos-survivors-room-codes";
 
-interface BufferedInput {
-  input: MovementInput;
-  receivedAt: number;
-}
-
 interface RoomOptions {
   nickname?: unknown;
   visibility?: RoomVisibility;
 }
 
-export class GameRoom extends Room<{ state: GameState }> {
+export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   state = new GameState();
   maxClients = GAME_LIMITS.maxPlayersPerRoom;
   patchRate = 1000 / NETWORK_RATE.stateSyncHz;
   maxMessagesPerSecond = 60;
 
-  private readonly playerInputs = new Map<string, BufferedInput>();
-
-  messages = {
-    [CLIENT_MESSAGES.movement]: (client: Client, payload: unknown) => {
-      const input = parseMovementInput(payload);
-
-      if (!input || !this.state.players.has(client.sessionId)) {
-        return;
-      }
-
-      this.playerInputs.set(client.sessionId, {
-        input,
-        receivedAt: Date.now(),
-      });
+  inputs = this.defineInput(MovementInput, {
+    bufferMaxSize: NETWORK_RATE.inputBufferMaxSize,
+    sanitize: {
+      moveX: [-1, 1],
+      moveY: [-1, 1],
     },
-  };
+    idle: () => true,
+  });
 
   async onCreate(options: RoomOptions): Promise<void> {
     this.roomId = await this.generateRoomCode();
@@ -68,13 +53,31 @@ export class GameRoom extends Room<{ state: GameState }> {
     const spawn = PLAYER_SPAWNS[this.state.players.size % PLAYER_SPAWNS.length] ?? PLAYER_SPAWNS[0];
 
     player.nickname = normalizeNickname(options.nickname) ?? `생존자${this.state.players.size + 1}`;
+    player.connected = true;
     player.x = tileToWorld(spawn.tileX);
     player.y = tileToWorld(spawn.tileY);
     this.state.players.set(client.sessionId, player);
   }
 
+  onDrop(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+
+    if (player) {
+      player.connected = false;
+    }
+
+    this.allowReconnection(client, RECONNECTION.windowSeconds);
+  }
+
+  onReconnect(client: Client): void {
+    const player = this.state.players.get(client.sessionId);
+
+    if (player) {
+      player.connected = true;
+    }
+  }
+
   onLeave(client: Client): void {
-    this.playerInputs.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
   }
 
@@ -83,23 +86,15 @@ export class GameRoom extends Room<{ state: GameState }> {
   }
 
   private simulate(context: StepContext): void {
-    const now = Date.now();
-
     this.state.players.forEach((player, sessionId) => {
-      const buffered = this.playerInputs.get(sessionId);
-      const input =
-        buffered && now - buffered.receivedAt <= NETWORK_RATE.inputTimeoutMs
-          ? buffered.input
-          : IDLE_MOVEMENT_INPUT;
-      const position = moveWithTestMapCollision(
-        { x: player.x, y: player.y },
+      const input = this.inputs.get(sessionId).next();
+
+      applyMovementWithTestMapCollision(
+        player,
         input,
         PLAYER_SPEED,
         context.dt,
       );
-
-      player.x = position.x;
-      player.y = position.y;
     });
   }
 

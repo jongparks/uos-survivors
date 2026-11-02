@@ -24,6 +24,15 @@ export const GAME_LIMITS = {
 export const NETWORK_RATE = {
   simulationHz: 30,
   stateSyncHz: 20,
-  inputTimeoutMs: 250,
+  inputBufferMaxSize: 64,
+  interpolationDelayMs: 100,
+  correctionSmoothMs: 65,
+} as const;
+
+export const RECONNECTION = {
+  windowSeconds: 15,
+  maxRetries: 10,
+  minUptimeMs: 0,
+  maxDelayMs: 1_000,
 } as const;
 

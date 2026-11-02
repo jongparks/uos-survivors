@@ -1,14 +1,16 @@
-import { Callbacks } from "@colyseus/sdk";
+import { Callbacks, Predict, type InputHandle } from "@colyseus/sdk";
 import Phaser from "phaser";
 
 import {
-  CLIENT_MESSAGES,
+  MovementInput,
   NETWORK_RATE,
+  PLAYER_SPEED,
   TEST_MAP_DATA,
   TEST_MAP_HEIGHT,
   TEST_MAP_WIDTH,
   TILE_INDEX,
   TILE_SIZE,
+  applyMovementWithTestMapCollision,
   type PlayerState,
 } from "@uos-survivors/shared";
 
@@ -22,7 +24,8 @@ export class MultiplayerScene extends Phaser.Scene {
   private readonly playerViews = new Map<string, NetworkPlayerView>();
   private readonly callbackDisposers: Array<() => void> = [];
   private keyboardInput?: KeyboardInput;
-  private inputAccumulator = 0;
+  private movementInput?: InputHandle<MovementInput>;
+  private predict?: Predict;
   private disposed = false;
 
   constructor(room: ConnectedGameRoom) {
@@ -34,6 +37,18 @@ export class MultiplayerScene extends Phaser.Scene {
     createGeneratedTextures(this);
     this.createMap();
     this.keyboardInput = new KeyboardInput(this);
+    this.movementInput = this.room.input({ type: MovementInput, mode: "reliable" });
+    this.predict = Predict.get(this.room, {
+      mode: "lerp",
+      delay: NETWORK_RATE.interpolationDelayMs,
+      name: "uos-gameplay",
+    });
+    this.predict.attachAll("players", {
+      mode: "lerp",
+      fields: ["x", "y"],
+      delay: NETWORK_RATE.interpolationDelayMs,
+      snap: TILE_SIZE * 2,
+    });
 
     const callbacks = Callbacks.get(this.room);
     this.callbackDisposers.push(
@@ -58,7 +73,7 @@ export class MultiplayerScene extends Phaser.Scene {
       .setDepth(100);
 
     this.add
-      .text(20, 58, "PHASE 2 · SERVER AUTHORITATIVE MULTIPLAYER", {
+      .text(20, 58, "PHASE 3 · PREDICTION · RECONCILIATION · INTERPOLATION", {
         color: "#6f9d89",
         fontFamily: "monospace",
         fontSize: "11px",
@@ -69,18 +84,21 @@ export class MultiplayerScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.dispose());
   }
 
-  update(_time: number, delta: number): void {
-    if (!this.keyboardInput) {
+  update(time: number): void {
+    if (!this.keyboardInput || !this.movementInput || !this.predict) {
       return;
     }
 
-    const inputInterval = 1000 / NETWORK_RATE.simulationHz;
-    this.inputAccumulator = Math.min(this.inputAccumulator + delta, inputInterval * 2);
+    const inputSteps = this.predict.tick(time);
 
-    while (this.inputAccumulator >= inputInterval) {
-      this.inputAccumulator -= inputInterval;
-      this.room.send(CLIENT_MESSAGES.movement, this.keyboardInput.readMovement());
+    for (let step = 0; step < inputSteps; step += 1) {
+      const movement = this.keyboardInput.readMovement();
+      this.movementInput.data.moveX = movement.moveX as -1 | 0 | 1;
+      this.movementInput.data.moveY = movement.moveY as -1 | 0 | 1;
+      this.movementInput.send();
     }
+
+    this.renderPlayers();
   }
 
   private createMap(): void {
@@ -110,23 +128,48 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   private addPlayer(player: PlayerState, sessionId: string): void {
-    if (this.disposed) {
+    if (this.disposed || this.playerViews.has(sessionId)) {
       return;
     }
 
     const view = new NetworkPlayerView(this, player, sessionId === this.room.sessionId);
     this.playerViews.set(sessionId, view);
-    const callbacks = Callbacks.get(this.room);
-
-    this.callbackDisposers.push(
-      callbacks.onChange(player, () => {
-        view.applyServerState(player);
-      }),
-    );
-
     if (sessionId === this.room.sessionId) {
+      if (!this.predict || !this.movementInput) {
+        throw new Error("Prediction was not initialized before the local player");
+      }
+
+      this.predict.reconciler(player, {
+        input: this.movementInput,
+        fields: ["x", "y"],
+        smoothMs: NETWORK_RATE.correctionSmoothMs,
+        snap: TILE_SIZE * 2,
+        step: (context, state, command) => {
+          applyMovementWithTestMapCollision(state, command, PLAYER_SPEED, context.dt);
+        },
+      });
       this.cameras.main.startFollow(view.sprite, true, 0.12, 0.12);
     }
+  }
+
+  private renderPlayers(): void {
+    if (!this.predict) {
+      return;
+    }
+
+    this.playerViews.forEach((view, sessionId) => {
+      const player = this.room.state.players.get(sessionId);
+
+      if (!player) {
+        return;
+      }
+
+      view.applyRenderState(
+        player,
+        this.predict?.value(player, "x") ?? player.x,
+        this.predict?.value(player, "y") ?? player.y,
+      );
+    });
   }
 
   private removePlayer(sessionId: string): void {
@@ -140,12 +183,12 @@ export class MultiplayerScene extends Phaser.Scene {
     }
 
     this.disposed = true;
-    this.room.send(CLIENT_MESSAGES.movement, {
-      up: false,
-      down: false,
-      left: false,
-      right: false,
-    });
+    if (this.movementInput) {
+      this.movementInput.data.moveX = 0;
+      this.movementInput.data.moveY = 0;
+      this.movementInput.send();
+    }
+    this.predict?.dispose();
     this.callbackDisposers.splice(0).forEach((dispose) => dispose());
     this.playerViews.forEach((view) => view.destroy());
     this.playerViews.clear();

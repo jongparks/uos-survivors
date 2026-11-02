@@ -6,6 +6,7 @@ const STATUS_LABELS = {
   idle: "대기",
   connecting: "연결 중",
   connected: "연결됨",
+  reconnecting: "재접속 중",
   disconnected: "연결 종료",
   error: "연결 실패",
 } as const;

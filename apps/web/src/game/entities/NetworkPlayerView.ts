@@ -29,24 +29,26 @@ export class NetworkPlayerView {
       .setDepth(11);
   }
 
-  applyServerState(player: PlayerState): void {
+  applyRenderState(player: PlayerState, x: number, y: number): void {
     if (this.destroyed) {
       return;
     }
 
     const previousX = this.sprite.x;
-    const moved = previousX !== player.x || this.sprite.y !== player.y;
-    const movedLeft = player.x < previousX;
+    const moved = previousX !== x || this.sprite.y !== y;
+    const movedLeft = x < previousX;
 
-    this.sprite.setPosition(player.x, player.y);
-    this.label.setPosition(player.x, player.y - 34);
-    this.label.setText(player.nickname);
+    this.sprite.setPosition(x, y);
+    this.sprite.setAlpha(player.connected ? 1 : 0.42);
+    this.label.setPosition(x, y - 34);
+    this.label.setAlpha(player.connected ? 1 : 0.62);
+    this.label.setText(player.connected ? player.nickname : `${player.nickname} · 재접속 중`);
 
     if (!moved) {
       return;
     }
 
-    if (player.x !== previousX) {
+    if (x !== previousX) {
       this.sprite.setFlipX(movedLeft);
     }
 
