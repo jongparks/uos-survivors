@@ -86,7 +86,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.room.send(FOSSIL_MESSAGES.requestHideSpots);
 
     this.add
-      .text(20, 18, `ROOM ${this.room.roomId}  ·  WASD MOVE  ·  SHIFT SKILL  ·  E INTERACT`, {
+      .text(20, 18, `ROOM ${this.room.roomId}  ·  ARROWS MOVE  ·  SHIFT ABILITY  ·  SPACE INTERACT`, {
         color: "#bfffe1",
         fontFamily: "monospace",
         fontSize: "14px",
@@ -156,7 +156,6 @@ export class MultiplayerScene extends Phaser.Scene {
         const isHidden = localPlayer?.activity === PLAYER_ACTIVITY.hidden;
         this.movementInput.data.moveX = (isHidden ? 0 : controls.moveX) as -1 | 0 | 1;
         this.movementInput.data.moveY = (isHidden ? 0 : controls.moveY) as -1 | 0 | 1;
-        this.movementInput.data.attack = isHidden ? false : controls.attack;
         this.movementInput.data.interact = controls.interact;
         this.movementInput.data.useSkill = isHidden ? false : controls.useSkill;
         this.movementInput.send();
@@ -318,7 +317,7 @@ export class MultiplayerScene extends Phaser.Scene {
     if (player.activity === PLAYER_ACTIVITY.hidden) {
       const remaining = Math.max(0, player.hideEndsAt - Date.now()) / 1_000;
       this.hidePromptText
-        ?.setText(`은신 중 · 남은 시간 ${remaining.toFixed(1)}초  [E] 나오기`)
+        ?.setText(`은신 중 · 남은 시간 ${remaining.toFixed(1)}초  [SPACE] 나오기`)
         .setVisible(true);
       return;
     }
@@ -326,7 +325,7 @@ export class MultiplayerScene extends Phaser.Scene {
     const canHide = Array.from(this.fossilHideSpotMarkers.values()).some(({ data }) =>
       Math.hypot(player.x - data.x, player.y - data.y) <= data.interactionRadius,
     );
-    this.hidePromptText?.setText(`[E] ${FOSSIL_CONFIG.skillName}`).setVisible(canHide);
+    this.hidePromptText?.setText(`[SPACE] ${FOSSIL_CONFIG.skillName}`).setVisible(canHide);
   }
 
   private replaceFossilHideSpotMarkers(spots: FossilHideSpotView[]): void {
@@ -372,7 +371,6 @@ export class MultiplayerScene extends Phaser.Scene {
     if (this.movementInput) {
       this.movementInput.data.moveX = 0;
       this.movementInput.data.moveY = 0;
-      this.movementInput.data.attack = false;
       this.movementInput.data.interact = false;
       this.movementInput.data.useSkill = false;
       this.movementInput.send();

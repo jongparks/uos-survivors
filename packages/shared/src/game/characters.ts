@@ -1,3 +1,5 @@
+import { CONTROL_BINDINGS } from "./controls.js";
+
 export const CHARACTER_IDS = {
   fossil: "HUMAN_001",
   sportsStudent: "HUMAN_002",
@@ -35,7 +37,7 @@ export const FOSSIL_CONFIG = {
   hideDurationMs: 20_000,
   hideSpotCount: 5,
   hideSpotMaxUses: 1,
-  interactionKey: "E",
+  interactionKey: CONTROL_BINDINGS.interaction,
   allowEarlyExit: true,
   consumeSpotOnEnter: true,
 } as const;
@@ -64,7 +66,7 @@ export const SPORTS_STUDENT_CONFIG = {
   exhaustionDurationMs: 2_000,
   exhaustionSpeedMultiplier: 0.65,
   cooldownMs: 25_000,
-  activationKey: "SHIFT",
+  activationKey: CONTROL_BINDINGS.ability,
   allowCancel: false,
 } as const;
 

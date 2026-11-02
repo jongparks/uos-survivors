@@ -4,7 +4,6 @@ export const MovementInput = schema(
   {
     moveX: t.int8<-1 | 0 | 1>().default(0),
     moveY: t.int8<-1 | 0 | 1>().default(0),
-    attack: t.boolean().default(false),
     interact: t.boolean().default(false),
     useSkill: t.boolean().default(false),
   },
@@ -18,7 +17,6 @@ export interface MovementAxes {
 }
 
 export interface PlayerControls extends MovementAxes {
-  attack: boolean;
   interact: boolean;
   useSkill: boolean;
 }
@@ -26,7 +24,6 @@ export interface PlayerControls extends MovementAxes {
 export const IDLE_MOVEMENT_INPUT = {
   moveX: 0,
   moveY: 0,
-  attack: false,
   interact: false,
   useSkill: false,
 } as const satisfies PlayerControls;

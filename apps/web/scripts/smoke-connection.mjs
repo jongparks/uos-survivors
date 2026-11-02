@@ -215,17 +215,17 @@ try {
   for (let tick = 0; tick < 5; tick += 1) {
     privateInput.data.moveX = 1;
     privateInput.data.moveY = 0;
-    privateInput.data.attack = false;
+    privateInput.data.useSkill = false;
     privateInput.send();
     await delay(35);
   }
 
   const infectionStartedAt = Date.now();
   privateInput.data.moveX = 0;
-  privateInput.data.attack = true;
+  privateInput.data.useSkill = true;
   privateInput.send();
   await delay(35);
-  privateInput.data.attack = false;
+  privateInput.data.useSkill = false;
   privateInput.send();
 
   const infectedPrivateGuest = privateHostRoom.state.players.get(invitedPrivateGuest.sessionId);

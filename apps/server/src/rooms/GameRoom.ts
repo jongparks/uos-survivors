@@ -203,7 +203,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         context.dt,
       );
 
-      if (input.attack && !inputChannel.wasIdle) {
+      if (skillPressed) {
         const targetSessionId = resolveZombieAttack(this.state, sessionId, now);
         if (targetSessionId && infectHuman(this.state, targetSessionId, now)) {
           finishIfAllHumansInfected(this.state);
