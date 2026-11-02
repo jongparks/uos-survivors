@@ -1,0 +1,21 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+  msgpackr-extract: true
+
+# Colyseus exposes alternative transports as peer dependencies. Keep the
+# dependency graph limited to the explicitly selected WebSocket transport.
+autoInstallPeers: false
+
+peerDependencyRules:
+  ignoreMissing:
+    # Colyseus supports multiple alternative transports. This project uses
+    # @colyseus/ws-transport and intentionally does not install uWebSockets.
+    - '@colyseus/uwebsockets-transport'
+
+minimumReleaseAgeExclude:
+  - '@vitejs/plugin-react@6.2.1'
+  - globals@17.14.0

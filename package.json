@@ -1,0 +1,31 @@
+{
+  "name": "uos-survivors",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "시대생존록 — UOS: University of Survivors",
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @uos-survivors/shared build && pnpm --parallel --filter @uos-survivors/web --filter @uos-survivors/server dev",
+    "build": "pnpm -r build",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:connection": "pnpm build && pnpm --filter @uos-survivors/web test:connection",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5"
+  }
+}
+
