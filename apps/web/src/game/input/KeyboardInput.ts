@@ -5,6 +5,7 @@ export class KeyboardInput {
   private readonly keys: Record<"up" | "down" | "left" | "right", Phaser.Input.Keyboard.Key>;
   private readonly attackKey: Phaser.Input.Keyboard.Key;
   private readonly interactKey: Phaser.Input.Keyboard.Key;
+  private readonly skillKey: Phaser.Input.Keyboard.Key;
 
   constructor(scene: Phaser.Scene) {
     if (!scene.input.keyboard) {
@@ -19,6 +20,7 @@ export class KeyboardInput {
     }) as Record<"up" | "down" | "left" | "right", Phaser.Input.Keyboard.Key>;
     this.attackKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.interactKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.skillKey = scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
   }
 
   readControls(): PlayerControls {
@@ -27,6 +29,7 @@ export class KeyboardInput {
       moveY: Number(this.keys.down.isDown) - Number(this.keys.up.isDown),
       attack: this.attackKey.isDown,
       interact: this.interactKey.isDown,
+      useSkill: this.skillKey.isDown,
     };
   }
 }

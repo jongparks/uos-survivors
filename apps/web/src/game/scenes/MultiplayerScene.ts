@@ -11,12 +11,15 @@ import {
   PLAYER_SPEED,
   PLAYER_ACTIVITY,
   PLAYER_ROLE,
+  SPORTS_STUDENT_CONFIG,
+  SPRINT_STATE,
   TEST_MAP_DATA,
   TEST_MAP_HEIGHT,
   TEST_MAP_WIDTH,
   TILE_INDEX,
   TILE_SIZE,
   applyMovementWithTestMapCollision,
+  getSportsSpeedMultiplier,
   type FossilHideSpotView,
   type PlayerState,
 } from "@uos-survivors/shared";
@@ -83,7 +86,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.room.send(FOSSIL_MESSAGES.requestHideSpots);
 
     this.add
-      .text(20, 18, `ROOM ${this.room.roomId}  ·  WASD MOVE  ·  SPACE ATTACK  ·  E INTERACT`, {
+      .text(20, 18, `ROOM ${this.room.roomId}  ·  WASD MOVE  ·  SHIFT SKILL  ·  E INTERACT`, {
         color: "#bfffe1",
         fontFamily: "monospace",
         fontSize: "14px",
@@ -128,7 +131,7 @@ export class MultiplayerScene extends Phaser.Scene {
       .setVisible(false);
 
     this.add
-      .text(20, 58, "PHASE 5 · CHARACTER FOUNDATION · FOSSIL", {
+      .text(20, 58, "PHASE 5 · RANDOM HUMAN CHARACTERS", {
         color: "#6f9d89",
         fontFamily: "monospace",
         fontSize: "11px",
@@ -155,6 +158,7 @@ export class MultiplayerScene extends Phaser.Scene {
         this.movementInput.data.moveY = (isHidden ? 0 : controls.moveY) as -1 | 0 | 1;
         this.movementInput.data.attack = isHidden ? false : controls.attack;
         this.movementInput.data.interact = controls.interact;
+        this.movementInput.data.useSkill = isHidden ? false : controls.useSkill;
         this.movementInput.send();
       }
     }
@@ -206,7 +210,17 @@ export class MultiplayerScene extends Phaser.Scene {
         smoothMs: NETWORK_RATE.correctionSmoothMs,
         snap: TILE_SIZE * 2,
         step: (context, state, command) => {
-          applyMovementWithTestMapCollision(state, command, PLAYER_SPEED, context.dt);
+          const speedMultiplier =
+            state.characterId === CHARACTER_IDS.sportsStudent &&
+            state.role === PLAYER_ROLE.human
+              ? getSportsSpeedMultiplier(state.sprintState)
+              : 1;
+          applyMovementWithTestMapCollision(
+            state,
+            command,
+            PLAYER_SPEED * speedMultiplier,
+            context.dt,
+          );
         },
       });
       this.cameras.main.startFollow(view.sprite, true, 0.12, 0.12);
@@ -233,7 +247,7 @@ export class MultiplayerScene extends Phaser.Scene {
 
       if (sessionId === this.room.sessionId) {
         this.updateLocalHud(player);
-        this.updateFossilPrompt(player);
+        this.updateCharacterSkillPrompt(player);
       }
     });
   }
@@ -247,6 +261,12 @@ export class MultiplayerScene extends Phaser.Scene {
           : "MATCH ACTIVE · INFECTION SPREADING";
     const isZombie = player.role === PLAYER_ROLE.zombie;
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
+    const characterLabel =
+      player.characterId === CHARACTER_IDS.sportsStudent
+        ? "스과생 / SPORTS SCIENCE"
+        : player.characterId === CHARACTER_IDS.fossil
+          ? "화석 / FOSSIL"
+          : "CHARACTER ASSIGNMENT PENDING";
     const attackLockSeconds = Math.max(0, player.attackLockedUntil - Date.now()) / 1_000;
 
     this.matchStatusText?.setText(phaseLabel);
@@ -257,7 +277,7 @@ export class MultiplayerScene extends Phaser.Scene {
       isHidden
         ? `화석 · 은신 중 · ${Math.max(0, player.hideEndsAt - Date.now()) / 1_000 < 0.05 ? "종료 중" : `${(Math.max(0, player.hideEndsAt - Date.now()) / 1_000).toFixed(1)}s`}`
         : !isZombie
-        ? `ROLE · HUMAN · ${player.characterId === CHARACTER_IDS.fossil ? "화석 / FOSSIL" : "SURVIVE"}`
+        ? `ROLE · HUMAN · ${characterLabel}`
         : this.room.state.phase === GAME_PHASE.finished
           ? "ROLE · ZOMBIE · MATCH OVER"
           : attackLockSeconds > 0
@@ -267,12 +287,30 @@ export class MultiplayerScene extends Phaser.Scene {
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
-  private updateFossilPrompt(player: PlayerState): void {
+  private updateCharacterSkillPrompt(player: PlayerState): void {
     if (
-      player.characterId !== CHARACTER_IDS.fossil ||
       player.role !== PLAYER_ROLE.human ||
       this.room.state.phase !== GAME_PHASE.playing
     ) {
+      this.hidePromptText?.setVisible(false);
+      return;
+    }
+
+    if (player.characterId === CHARACTER_IDS.sportsStudent) {
+      const now = Date.now();
+      const statusText =
+        player.sprintState === SPRINT_STATE.sprinting
+          ? `전력 질주 중 · ${Math.max(0, player.sprintEndsAt - now) / 1_000 < 0.05 ? "종료 중" : `${(Math.max(0, player.sprintEndsAt - now) / 1_000).toFixed(1)}초`}`
+          : player.sprintState === SPRINT_STATE.exhausted
+            ? `탈진 상태 · ${(Math.max(0, player.exhaustionEndsAt - now) / 1_000).toFixed(1)}초`
+            : player.sprintState === SPRINT_STATE.cooldown
+              ? `${SPORTS_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil(Math.max(0, player.cooldownEndsAt - now) / 1_000)}초`
+              : `[SHIFT] ${SPORTS_STUDENT_CONFIG.skillName}`;
+      this.hidePromptText?.setText(statusText).setVisible(true);
+      return;
+    }
+
+    if (player.characterId !== CHARACTER_IDS.fossil) {
       this.hidePromptText?.setVisible(false);
       return;
     }
@@ -336,6 +374,7 @@ export class MultiplayerScene extends Phaser.Scene {
       this.movementInput.data.moveY = 0;
       this.movementInput.data.attack = false;
       this.movementInput.data.interact = false;
+      this.movementInput.data.useSkill = false;
       this.movementInput.send();
     }
     this.predict?.dispose();

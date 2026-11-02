@@ -8,6 +8,7 @@ import {
   COMBAT_RULES,
   GAME_PHASE,
   GAME_LIMITS,
+  HUMAN_CHARACTER_IDS,
   MATCH_WINNER,
   MovementInput,
   NETWORK_RATE,
@@ -15,6 +16,7 @@ import {
   PLAYER_ROLE,
   ROOM_NAMES,
   ROOM_VISIBILITY,
+  UNASSIGNED_CHARACTER_ID,
 } from "@uos-survivors/shared";
 
 const webDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -137,6 +139,18 @@ try {
     publicHostRoom.state.players.get(quickGuestRoom.sessionId)?.role !== PLAYER_ROLE.human
   ) {
     throw new Error("Initial zombie and human roles were not assigned");
+  }
+
+  if (
+    publicHostRoom.state.players.get(publicHostRoom.sessionId)?.characterId !==
+      UNASSIGNED_CHARACTER_ID ||
+    Array.from(publicHostRoom.state.players.values()).some(
+      (player) =>
+        player.role === PLAYER_ROLE.human &&
+        !HUMAN_CHARACTER_IDS.includes(player.characterId),
+    )
+  ) {
+    throw new Error("Human characters were not assigned from the server random pool");
   }
 
   const hostPlayer = publicHostRoom.state.players.get(publicHostRoom.sessionId);

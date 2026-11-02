@@ -1,6 +1,10 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
 
-import { CHARACTER_IDS, PLAYER_ACTIVITY } from "../game/characters.js";
+import {
+  PLAYER_ACTIVITY,
+  SPRINT_STATE,
+  UNASSIGNED_CHARACTER_ID,
+} from "../game/characters.js";
 import { GAME_PHASE, MATCH_WINNER, PLAYER_ROLE } from "../game/rules.js";
 
 export const PlayerState = schema(
@@ -8,11 +12,16 @@ export const PlayerState = schema(
     nickname: t.string().default(""),
     connected: t.boolean().default(true),
     role: t.string().default(PLAYER_ROLE.human),
-    characterId: t.string().default(CHARACTER_IDS.fossil),
+    characterId: t.string().default(UNASSIGNED_CHARACTER_ID),
     activity: t.string().default(PLAYER_ACTIVITY.normal),
     activeHideSpotId: t.string().default(""),
     hideStartedAt: t.float64().default(0),
     hideEndsAt: t.float64().default(0),
+    sprintState: t.string().default(SPRINT_STATE.ready),
+    skillStartedAt: t.float64().default(0),
+    sprintEndsAt: t.float64().default(0),
+    exhaustionEndsAt: t.float64().default(0),
+    cooldownEndsAt: t.float64().default(0),
     x: t.float32().default(0),
     y: t.float32().default(0),
     facingX: t.float32().default(1),

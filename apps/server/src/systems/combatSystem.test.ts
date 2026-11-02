@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   COMBAT_RULES,
+  CHARACTER_IDS,
   GAME_PHASE,
   GameState,
   PLAYER_ACTIVITY,
   PLAYER_ROLE,
   PlayerState,
+  SPRINT_STATE,
 } from "@uos-survivors/shared";
 
 import { findZombieAttackTarget, resolveZombieAttack } from "./combatSystem.js";
@@ -64,9 +66,15 @@ describe("zombie combat", () => {
     state.phase = GAME_PHASE.playing;
     addPlayer(state, "zombie", PLAYER_ROLE.zombie, 100, 100);
     const human = addPlayer(state, "human", PLAYER_ROLE.human, 140, 100);
+    human.characterId = CHARACTER_IDS.sportsStudent;
+    human.sprintState = SPRINT_STATE.sprinting;
+    human.sprintEndsAt = 8_000;
+    human.cooldownEndsAt = 27_000;
 
     expect(infectHuman(state, "human", 2_000)).toBe(true);
     expect(human.role).toBe(PLAYER_ROLE.zombie);
+    expect(human.sprintState).toBe(SPRINT_STATE.ready);
+    expect(human.cooldownEndsAt).toBe(0);
     expect(human.attackLockedUntil).toBe(2_000 + COMBAT_RULES.infectionAttackLockMs);
     expect(finishIfAllHumansInfected(state)).toBe(true);
     expect(state.phase).toBe(GAME_PHASE.finished);

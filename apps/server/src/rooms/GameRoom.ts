@@ -19,7 +19,9 @@ import {
   PLAYER_ROLE,
   RECONNECTION,
   ROOM_VISIBILITY,
+  UNASSIGNED_CHARACTER_ID,
   applyMovementWithTestMapCollision,
+  pickRandomHumanCharacter,
   tileToWorld,
   type RoomVisibility,
 } from "@uos-survivors/shared";
@@ -29,6 +31,12 @@ import { CURRENT_MAP_HIDE_SPOT_CANDIDATES } from "../maps/hideSpotRegistry.js";
 import { resolveZombieAttack } from "../systems/combatSystem.js";
 import { FossilHideSystem } from "../systems/fossilHideSystem.js";
 import { finishIfAllHumansInfected, infectHuman } from "../systems/infectionSystem.js";
+import {
+  getPlayerSpeedMultiplier,
+  resetSportsSprint,
+  tryActivateSportsSprint,
+  updateSportsSprint,
+} from "../systems/sportsSprintSystem.js";
 
 const INVITE_CODE_CHANNEL = "$uos-survivors-room-codes";
 
@@ -44,6 +52,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   maxMessagesPerSecond = 60;
   private readonly fossilHideSystem = new FossilHideSystem(CURRENT_MAP_HIDE_SPOT_CANDIDATES);
   private readonly interactionHeld = new Map<string, boolean>();
+  private readonly skillHeld = new Map<string, boolean>();
   private readonly hideSpotSubscribers = new Set<string>();
 
   inputs = this.defineInput(MovementInput, {
@@ -74,6 +83,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     player.nickname = normalizeNickname(options.nickname) ?? `생존자${this.state.players.size + 1}`;
     player.connected = true;
     player.role = PLAYER_ROLE.human;
+    if (this.state.phase === GAME_PHASE.playing) {
+      player.characterId = pickRandomHumanCharacter(Math.random());
+    }
     player.x = tileToWorld(spawn.tileX);
     player.y = tileToWorld(spawn.tileY);
     this.state.players.set(client.sessionId, player);
@@ -104,6 +116,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   onLeave(client: Client): void {
     client.view?.dispose();
     this.interactionHeld.delete(client.sessionId);
+    this.skillHeld.delete(client.sessionId);
     this.hideSpotSubscribers.delete(client.sessionId);
     this.state.players.delete(client.sessionId);
 
@@ -122,7 +135,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       if (replacement) {
         const [sessionId, player] = replacement;
         this.fossilHideSystem.exit(player);
+        resetSportsSprint(player);
         player.role = PLAYER_ROLE.zombie;
+        player.characterId = UNASSIGNED_CHARACTER_ID;
         player.attackLockedUntil = 0;
         player.nextAttackAt = 0;
         this.state.initialZombieSessionId = sessionId;
@@ -144,7 +159,11 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       const inputChannel = this.inputs.get(sessionId);
       const input = inputChannel.next();
       const interactionPressed = input.interact && !this.interactionHeld.get(sessionId);
+      const skillPressed = input.useSkill && !this.skillHeld.get(sessionId);
       this.interactionHeld.set(sessionId, input.interact);
+      this.skillHeld.set(sessionId, input.useSkill);
+
+      updateSportsSprint(player, now);
 
       if (this.fossilHideSystem.update(player, now)) {
         this.setPlayerVisibleToOthers(sessionId, player, true);
@@ -167,6 +186,10 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         return;
       }
 
+      if (skillPressed) {
+        tryActivateSportsSprint(player, now);
+      }
+
       if (input.moveX !== 0 || input.moveY !== 0) {
         const magnitude = Math.hypot(input.moveX, input.moveY);
         player.facingX = input.moveX / magnitude;
@@ -176,7 +199,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       applyMovementWithTestMapCollision(
         player,
         input,
-        PLAYER_SPEED,
+        PLAYER_SPEED * getPlayerSpeedMultiplier(player),
         context.dt,
       );
 
@@ -211,6 +234,16 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     }
 
     const [sessionId, player] = initialZombie;
+    this.state.players.forEach((candidate, candidateSessionId) => {
+      resetSportsSprint(candidate);
+      this.fossilHideSystem.resetPlayer(candidate);
+      candidate.role =
+        candidateSessionId === sessionId ? PLAYER_ROLE.zombie : PLAYER_ROLE.human;
+      candidate.characterId =
+        candidateSessionId === sessionId
+          ? UNASSIGNED_CHARACTER_ID
+          : pickRandomHumanCharacter(Math.random());
+    });
     player.role = PLAYER_ROLE.zombie;
     player.attackLockedUntil = 0;
     player.nextAttackAt = 0;
@@ -227,7 +260,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.fossilHideSystem.clear();
     this.state.players.forEach((player) => {
       this.fossilHideSystem.resetPlayer(player);
+      resetSportsSprint(player);
       player.role = PLAYER_ROLE.human;
+      player.characterId = UNASSIGNED_CHARACTER_ID;
       player.attackLockedUntil = 0;
       player.nextAttackAt = 0;
     });
