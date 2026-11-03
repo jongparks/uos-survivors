@@ -269,7 +269,7 @@ export class MultiplayerScene extends Phaser.Scene {
               Date.now() < state.stunnedUntil ? 0 : speed, context.dt, state.role, this.room.state.bookBarriers.values(), Date.now());
             return;
           }
-          const speedMultiplier = getCharacterSpeedMultiplier(state.characterId, state.role, state.sprintState);
+          const speedMultiplier = getCharacterSpeedMultiplier(state.characterId, state.role, state.sprintState, state.isDisguised);
           applyMovementWithBarriers(
             state,
             command,
@@ -364,12 +364,19 @@ export class MultiplayerScene extends Phaser.Scene {
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
             : player.characterId === CHARACTER_IDS.normalZombie
               ? `ROLE · ZOMBIE · 일반 좀비 · ${basicAttackLabel}`
-              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.lateZombie ? "지각생" : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
+              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.xmanZombie ? "엑스맨" : player.characterId === CHARACTER_IDS.lateZombie ? "지각생" : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.xmanZombie && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(player.isDisguised ? `위장 중 · 남은 시간 ${(Math.max(0, player.disguiseEndsAt - now) / 1000).toFixed(1)}초  [SHIFT] 해제`
+        : player.disguiseCooldownEndsAt > now ? `새터 잠입 · 재사용까지 ${Math.ceil((player.disguiseCooldownEndsAt - now) / 1000)}초`
+          : "[SHIFT] 새터 잠입").setVisible(true);
+      return;
+    }
     if (player.characterId === CHARACTER_IDS.lateZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(player.dashEndsAt > now ? "출석 마감 · 돌진 중"

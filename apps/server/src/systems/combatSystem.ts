@@ -6,6 +6,7 @@ import {
   type GameState,
   type PlayerState,
 } from "@uos-survivors/shared";
+import { endXmanDisguise, updateXmanDisguise } from "./xmanDisguiseSystem.js";
 
 export interface CombatTarget {
   type: "human" | "decoy";
@@ -89,6 +90,7 @@ export function resolveZombieAttack(
   now: number,
 ): CombatTarget | null {
   const attacker = state.players.get(attackerSessionId);
+  if (attacker) updateXmanDisguise(attacker, now);
 
   if (
     state.phase !== GAME_PHASE.playing ||
@@ -101,6 +103,7 @@ export function resolveZombieAttack(
     return null;
   }
 
+  endXmanDisguise(attacker, now, "attack");
   attacker.nextAttackAt = now + COMBAT_RULES.zombieAttackCooldownMs;
   attacker.lastBasicAttackAt = now;
   return findZombieAttackTarget(state, attackerSessionId);

@@ -40,6 +40,7 @@ import { VomitSystem } from "../systems/vomitSystem.js";
 import { GraduateTrackingSystem } from "../systems/graduateTrackingSystem.js";
 import { LibraryBarrierSystem } from "../systems/libraryBarrierSystem.js";
 import { LateDashSystem } from "../systems/lateDashSystem.js";
+import { resetXmanDisguise, updateXmanDisguise, tryToggleXmanDisguise } from "../systems/xmanDisguiseSystem.js";
 import {
   getPlayerSpeedMultiplier,
   resetSportsSprint,
@@ -187,6 +188,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       this.skillHeld.set(sessionId, input.useSkill);
 
       updateSportsSprint(player, now);
+      updateXmanDisguise(player, now);
 
       if (this.fossilHideSystem.update(player, now)) {
         this.setPlayerVisibleToOthers(sessionId, player, true);
@@ -227,6 +229,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.vomitSystem.tryActivate(this.state, sessionId, now);
         this.graduateTrackingSystem.tryActivate(this.state, sessionId, now);
         this.lateDashSystem.tryActivate(this.state, sessionId, now);
+        tryToggleXmanDisguise(this.state, sessionId, now);
         if (player.characterId === CHARACTER_IDS.libraryNpc && !this.libraryBarrierSystem.tryActivate(this.state, sessionId, now)) {
           this.clients.find(client => client.sessionId === sessionId)?.send(LIBRARY_PLACEMENT_FAILED_MESSAGE);
         }
@@ -281,6 +284,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     });
     this.libraryBarrierSystem.update(this.state, now);
     if (this.state.phase === GAME_PHASE.finished) this.lateDashSystem.clear(this.state);
+    if (this.state.phase === GAME_PHASE.finished) this.state.players.forEach(resetXmanDisguise);
   }
 
   private tryStartMatch(): void {
@@ -312,6 +316,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.lateDashSystem.clear(this.state);
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
+      resetXmanDisguise(candidate);
       this.fossilHideSystem.resetPlayer(candidate);
       this.sculptureDecoySystem.resetPlayer(candidate);
       candidate.role =
@@ -344,6 +349,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.players.forEach((player) => {
       this.fossilHideSystem.resetPlayer(player);
       resetSportsSprint(player);
+      resetXmanDisguise(player);
       this.sculptureDecoySystem.resetPlayer(player);
       player.role = PLAYER_ROLE.human;
       player.characterId = UNASSIGNED_CHARACTER_ID;

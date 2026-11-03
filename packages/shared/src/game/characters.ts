@@ -9,6 +9,7 @@ export const CHARACTER_IDS = {
   graduateZombie: "ZOMBIE_002",
   libraryNpc: "ZOMBIE_003",
   lateZombie: "ZOMBIE_004",
+  xmanZombie: "ZOMBIE_005",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -29,7 +30,7 @@ export function pickRandomHumanCharacter(randomValue: number): CharacterId {
   return HUMAN_CHARACTER_IDS[index] ?? CHARACTER_IDS.fossil;
 }
 
-export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc, CHARACTER_IDS.lateZombie] as const;
+export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc, CHARACTER_IDS.lateZombie, CHARACTER_IDS.xmanZombie] as const;
 
 export function pickInitialZombieCharacter(randomValue: number): CharacterId {
   const index = Math.floor(Math.min(0.999_999, Math.max(0, randomValue)) * SPECIAL_ZOMBIE_CHARACTER_IDS.length);
@@ -50,7 +51,8 @@ export const NORMAL_ZOMBIE_CONFIG = {
   canInfectHumans: true,
 } as const;
 
-export function getCharacterSpeedMultiplier(characterId: string, role: string, sprintState: string): number {
+export function getCharacterSpeedMultiplier(characterId: string, role: string, sprintState: string, isDisguised = false): number {
+  if (role === "zombie" && characterId === CHARACTER_IDS.xmanZombie) return isDisguised ? 1 : 1.08;
   if (role === "zombie") return characterId === CHARACTER_IDS.normalZombie || characterId === CHARACTER_IDS.lateZombie ? NORMAL_ZOMBIE_CONFIG.movementSpeedMultiplier : 1;
   return characterId === CHARACTER_IDS.sportsStudent ? getSportsSpeedMultiplier(sprintState) : 1;
 }
@@ -172,6 +174,19 @@ export const LATE_ZOMBIE_CONFIG = {
   allowDirectionChangeDuringDash: false, allowMoveInputDuringDash: false,
   stunOnWallCollision: false, exhaustionAfterDash: false,
 } as const;
+
+export const XMAN_ZOMBIE_CONFIG = {
+  characterId: CHARACTER_IDS.xmanZombie, skillId: "FRESHMAN_DISGUISE", skillName: "새터 잠입", activationKey: "SHIFT",
+  disguiseDurationMs: 10_000, cooldownMs: 40_000, disguisedSpeedMultiplier: 1, normalZombieSpeedMultiplier: 1.08,
+  allowManualCancel: true, cancelOnAttack: true, attackOnCancel: true,
+  attackDelayAfterManualCancelMs: 500, attackDelayAfterTimeoutMs: 500,
+  basicAttackCooldownMs: 2_000, canCompleteObjectivesWhileDisguised: false,
+  canUseHumanSkillsWhileDisguised: false, actualTeamWhileDisguised: "ZOMBIE",
+} as const;
+
+export function isHumanDisguise(characterId: string, role: string, isDisguised: boolean): boolean {
+  return characterId === CHARACTER_IDS.xmanZombie && role === "zombie" && isDisguised;
+}
 export const LIBRARY_NPC_CONFIG = {
   characterId: CHARACTER_IDS.libraryNpc, skillId: "RESERVED_SEAT", skillName: "자리 맡아놨습니다",
   activationKey: "SHIFT", placementRangeTiles: 2, barrierWidthTiles: 2, barrierHeightTiles: 1,

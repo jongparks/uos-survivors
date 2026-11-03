@@ -60,5 +60,5 @@ export function tryActivateSportsSprint(player: PlayerState, now: number): boole
 }
 
 export function getPlayerSpeedMultiplier(player: PlayerState): number {
-  return getCharacterSpeedMultiplier(player.characterId, player.role, player.sprintState);
+  return getCharacterSpeedMultiplier(player.characterId, player.role, player.sprintState, player.isDisguised);
 }

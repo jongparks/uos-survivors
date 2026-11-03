@@ -240,7 +240,7 @@ try {
     if (guestTrackingPackets !== 0) throw new Error("Tracking leaked to another client");
     privateInput.data.interact = true; privateInput.send();
   }
-  if (privateHostRoom.state.players.get(privateHostRoom.sessionId)?.characterId === CHARACTER_IDS.libraryNpc) {
+  if ([CHARACTER_IDS.libraryNpc, CHARACTER_IDS.xmanZombie].includes(privateHostRoom.state.players.get(privateHostRoom.sessionId)?.characterId)) {
     privateInput.data.interact = true; privateInput.send();
   }
 

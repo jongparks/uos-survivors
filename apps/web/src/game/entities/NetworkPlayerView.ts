@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-import { CHARACTER_IDS, PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_SPEED, type PlayerState } from "@uos-survivors/shared";
+import { CHARACTER_IDS, PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_SPEED, isHumanDisguise, type PlayerState } from "@uos-survivors/shared";
 
 import { TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
 import { NORMAL_ZOMBIE_DESIGN } from "../rendering/normalZombieDesign";
@@ -53,6 +53,7 @@ export class NetworkPlayerView {
     this.worldY = y;
     const movedLeft = x < previousX;
     const isNormalZombie = player.role === PLAYER_ROLE.zombie && player.characterId === CHARACTER_IDS.normalZombie;
+    const disguised = isHumanDisguise(player.characterId, player.role, player.isDisguised);
 
     if (isNormalZombie !== this.normalZombieDesignApplied) {
       this.stopTimer?.remove(false);
@@ -68,7 +69,7 @@ export class NetworkPlayerView {
 
     this.sprite.setPosition(x, y);
     this.sprite.setTint(
-      isNormalZombie ? 0xffffff : player.role === PLAYER_ROLE.zombie
+      isNormalZombie ? 0xffffff : player.role === PLAYER_ROLE.zombie && !disguised
         ? 0xff6f68
         : this.isLocalPlayer
           ? 0xffffff
@@ -78,11 +79,12 @@ export class NetworkPlayerView {
     this.sprite.setAlpha(isHidden ? 0.24 : player.connected ? 1 : 0.42);
     this.label.setPosition(x, y - (isNormalZombie ? 48 : 34));
     this.label.setAlpha(isHidden ? 0.72 : player.connected ? 1 : 0.62);
-    const roleLabel = player.role === PLAYER_ROLE.zombie
+    const roleLabel = player.role === PLAYER_ROLE.zombie && !disguised
       ? player.characterId === CHARACTER_IDS.normalZombie ? "일반 좀비"
         : player.characterId === CHARACTER_IDS.lateZombie ? "지각생"
           : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC"
-          : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"
+          : player.characterId === CHARACTER_IDS.xmanZombie ? "엑스맨"
+            : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"
       : "인간";
     this.label.setText(
       isHidden
