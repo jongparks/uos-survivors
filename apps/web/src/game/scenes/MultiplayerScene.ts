@@ -24,6 +24,7 @@ import {
   TILE_SIZE,
   applyMovementWithBarriers,
   LIBRARY_PLACEMENT_FAILED_MESSAGE,
+  LATE_ZOMBIE_CONFIG,
   getCharacterSpeedMultiplier,
   getPuddleSpeedMultiplier,
   type FossilHideSpotView,
@@ -261,6 +262,13 @@ export class MultiplayerScene extends Phaser.Scene {
         smoothMs: NETWORK_RATE.correctionSmoothMs,
         snap: TILE_SIZE * 2,
         step: (context, state, command) => {
+          if (state.dashEndsAt > Date.now()) {
+            const remaining = Math.max(0, TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles - Math.hypot(state.x - state.dashStartX, state.y - state.dashStartY));
+            const speed = Math.min(TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles / (LATE_ZOMBIE_CONFIG.dashDurationMs / 1000), remaining / context.dt);
+            applyMovementWithBarriers(state, { moveX: state.dashDirectionX, moveY: state.dashDirectionY },
+              Date.now() < state.stunnedUntil ? 0 : speed, context.dt, state.role, this.room.state.bookBarriers.values(), Date.now());
+            return;
+          }
           const speedMultiplier = getCharacterSpeedMultiplier(state.characterId, state.role, state.sprintState);
           applyMovementWithBarriers(
             state,
@@ -356,12 +364,19 @@ export class MultiplayerScene extends Phaser.Scene {
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
             : player.characterId === CHARACTER_IDS.normalZombie
               ? `ROLE · ZOMBIE · 일반 좀비 · ${basicAttackLabel}`
-              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
+              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.lateZombie ? "지각생" : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.lateZombie && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(player.dashEndsAt > now ? "출석 마감 · 돌진 중"
+        : player.dashCooldownEndsAt > now ? `출석 마감 · 재사용까지 ${Math.ceil((player.dashCooldownEndsAt - now) / 1000)}초`
+          : "[SHIFT] 출석 마감").setVisible(true);
+      return;
+    }
     if (player.characterId === CHARACTER_IDS.libraryNpc && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(now < this.placementFailedUntil ? "이 위치에는 설치할 수 없습니다."
@@ -475,6 +490,11 @@ export class MultiplayerScene extends Phaser.Scene {
       g.lineStyle(3, 0x82ac29, 0.7).lineBetween(p.x, p.y, p.x - p.directionX * 12, p.y - p.directionY * 12);
     });
     this.room.state.players.forEach(p => {
+      if (p.dashEndsAt > Date.now()) {
+        for (let i = 3; i >= 1; i--) {
+          g.fillStyle(0xffbf80, 0.09 * (4 - i)).fillEllipse(p.x - p.dashDirectionX * i * 10, p.y - p.dashDirectionY * i * 10, 22, 30);
+        }
+      }
       if (p.vomitCastEndsAt > Date.now()) {
         const radius = 18 + Math.sin(this.time.now / 45) * 3;
         g.lineStyle(3, 0xb4e74d, 0.9).strokeCircle(p.x, p.y, radius);

@@ -80,7 +80,8 @@ export class NetworkPlayerView {
     this.label.setAlpha(isHidden ? 0.72 : player.connected ? 1 : 0.62);
     const roleLabel = player.role === PLAYER_ROLE.zombie
       ? player.characterId === CHARACTER_IDS.normalZombie ? "일반 좀비"
-        : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC"
+        : player.characterId === CHARACTER_IDS.lateZombie ? "지각생"
+          : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC"
           : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"
       : "인간";
     this.label.setText(

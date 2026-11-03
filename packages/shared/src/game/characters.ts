@@ -8,6 +8,7 @@ export const CHARACTER_IDS = {
   normalZombie: "ZOMBIE_000",
   graduateZombie: "ZOMBIE_002",
   libraryNpc: "ZOMBIE_003",
+  lateZombie: "ZOMBIE_004",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -28,7 +29,7 @@ export function pickRandomHumanCharacter(randomValue: number): CharacterId {
   return HUMAN_CHARACTER_IDS[index] ?? CHARACTER_IDS.fossil;
 }
 
-export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc] as const;
+export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc, CHARACTER_IDS.lateZombie] as const;
 
 export function pickInitialZombieCharacter(randomValue: number): CharacterId {
   const index = Math.floor(Math.min(0.999_999, Math.max(0, randomValue)) * SPECIAL_ZOMBIE_CHARACTER_IDS.length);
@@ -50,7 +51,7 @@ export const NORMAL_ZOMBIE_CONFIG = {
 } as const;
 
 export function getCharacterSpeedMultiplier(characterId: string, role: string, sprintState: string): number {
-  if (role === "zombie") return characterId === CHARACTER_IDS.normalZombie ? NORMAL_ZOMBIE_CONFIG.movementSpeedMultiplier : 1;
+  if (role === "zombie") return characterId === CHARACTER_IDS.normalZombie || characterId === CHARACTER_IDS.lateZombie ? NORMAL_ZOMBIE_CONFIG.movementSpeedMultiplier : 1;
   return characterId === CHARACTER_IDS.sportsStudent ? getSportsSpeedMultiplier(sprintState) : 1;
 }
 
@@ -165,6 +166,12 @@ export const GRADUATE_ZOMBIE_CONFIG = {
 } as const;
 export const GRADUATE_TRACKING_MESSAGE = "graduate:tracking";
 export const LIBRARY_PLACEMENT_FAILED_MESSAGE = "library:placement-failed";
+export const LATE_ZOMBIE_CONFIG = {
+  characterId: CHARACTER_IDS.lateZombie, skillId: "LATE_DASH", skillName: "출석 마감", activationKey: "SHIFT",
+  dashDistanceTiles: 3, dashDurationMs: 500, cooldownMs: 25_000, maxInfectionsPerDash: 1,
+  allowDirectionChangeDuringDash: false, allowMoveInputDuringDash: false,
+  stunOnWallCollision: false, exhaustionAfterDash: false,
+} as const;
 export const LIBRARY_NPC_CONFIG = {
   characterId: CHARACTER_IDS.libraryNpc, skillId: "RESERVED_SEAT", skillName: "자리 맡아놨습니다",
   activationKey: "SHIFT", placementRangeTiles: 2, barrierWidthTiles: 2, barrierHeightTiles: 1,

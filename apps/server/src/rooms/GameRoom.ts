@@ -39,6 +39,7 @@ import { SculptureDecoySystem } from "../systems/sculptureDecoySystem.js";
 import { VomitSystem } from "../systems/vomitSystem.js";
 import { GraduateTrackingSystem } from "../systems/graduateTrackingSystem.js";
 import { LibraryBarrierSystem } from "../systems/libraryBarrierSystem.js";
+import { LateDashSystem } from "../systems/lateDashSystem.js";
 import {
   getPlayerSpeedMultiplier,
   resetSportsSprint,
@@ -63,6 +64,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly vomitSystem = new VomitSystem();
   private readonly graduateTrackingSystem = new GraduateTrackingSystem();
   private readonly libraryBarrierSystem = new LibraryBarrierSystem();
+  private readonly lateDashSystem = new LateDashSystem();
   private readonly interactionHeld = new Map<string, boolean>();
   private readonly skillHeld = new Map<string, boolean>();
   private readonly hideSpotSubscribers = new Set<string>();
@@ -131,6 +133,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.skillHeld.delete(client.sessionId);
     this.vomitSystem.cancel(client.sessionId);
     this.graduateTrackingSystem.remove(client.sessionId);
+    this.lateDashSystem.cancel(client.sessionId);
     this.hideSpotSubscribers.delete(client.sessionId);
     this.sculptureDecoySystem.removeOwner(this.state, client.sessionId);
     this.state.players.delete(client.sessionId);
@@ -202,6 +205,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
       if (now < player.stunnedUntil) {
         this.vomitSystem.cancel(sessionId, player);
+        this.lateDashSystem.cancel(sessionId, player);
         return;
       }
 
@@ -222,18 +226,24 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.sculptureDecoySystem.tryActivate(this.state, sessionId, now);
         this.vomitSystem.tryActivate(this.state, sessionId, now);
         this.graduateTrackingSystem.tryActivate(this.state, sessionId, now);
+        this.lateDashSystem.tryActivate(this.state, sessionId, now);
         if (player.characterId === CHARACTER_IDS.libraryNpc && !this.libraryBarrierSystem.tryActivate(this.state, sessionId, now)) {
           this.clients.find(client => client.sessionId === sessionId)?.send(LIBRARY_PLACEMENT_FAILED_MESSAGE);
         }
       }
 
-      if (!player.vomitCastEndsAt && (input.moveX !== 0 || input.moveY !== 0)) {
+      const dashMoved = this.lateDashSystem.updatePlayer(this.state, sessionId, now, id => {
+        this.sculptureDecoySystem.removeOwner(this.state, id);
+        if (infectHuman(this.state, id, now)) finishIfAllHumansInfected(this.state);
+      }, (id, attacker) => this.sculptureDecoySystem.hitDecoy(this.state, id, attacker, now));
+
+      if (!dashMoved && !player.vomitCastEndsAt && (input.moveX !== 0 || input.moveY !== 0)) {
         const magnitude = Math.hypot(input.moveX, input.moveY);
         player.facingX = input.moveX / magnitude;
         player.facingY = input.moveY / magnitude;
       }
 
-      applyMovementWithBarriers(
+      if (!dashMoved) applyMovementWithBarriers(
         player,
         input,
         PLAYER_SPEED * getPlayerSpeedMultiplier(player) * getPuddleSpeedMultiplier(this.state, player, now),
@@ -270,6 +280,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       }
     });
     this.libraryBarrierSystem.update(this.state, now);
+    if (this.state.phase === GAME_PHASE.finished) this.lateDashSystem.clear(this.state);
   }
 
   private tryStartMatch(): void {
@@ -298,6 +309,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.vomitSystem.clear(this.state);
     this.graduateTrackingSystem.clear();
     this.libraryBarrierSystem.clear(this.state);
+    this.lateDashSystem.clear(this.state);
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
       this.fossilHideSystem.resetPlayer(candidate);
@@ -324,6 +336,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = "";
     this.state.mapConfigError = "";
     this.fossilHideSystem.clear();
+    this.lateDashSystem.clear(this.state);
     this.libraryBarrierSystem.clear(this.state);
     this.graduateTrackingSystem.clear();
     this.vomitSystem.clear(this.state);
