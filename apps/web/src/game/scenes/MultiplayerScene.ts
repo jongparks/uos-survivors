@@ -306,6 +306,10 @@ export class MultiplayerScene extends Phaser.Scene {
           : "CHARACTER ASSIGNMENT PENDING";
     const attackLockSeconds = Math.max(0, player.attackLockedUntil - Date.now()) / 1_000;
     const stunSeconds = Math.max(0, player.stunnedUntil - Date.now()) / 1_000;
+    const attackCooldownSeconds = Math.max(0, player.nextAttackAt - Date.now()) / 1_000;
+    const basicAttackLabel = attackCooldownSeconds > 0
+      ? `기본공격 · ${attackCooldownSeconds.toFixed(1)}초`
+      : "[SPACE] 기본공격";
 
     this.matchStatusText?.setText(phaseLabel);
     this.matchStatusText?.setColor(
@@ -323,8 +327,8 @@ export class MultiplayerScene extends Phaser.Scene {
             : attackLockSeconds > 0
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
             : player.characterId === CHARACTER_IDS.normalZombie
-              ? "ROLE · ZOMBIE · 일반 좀비 · [SPACE] 기본공격"
-              : "ROLE · ZOMBIE · 만취생 · [SPACE] 기본공격",
+              ? `ROLE · ZOMBIE · 일반 좀비 · ${basicAttackLabel}`
+              : `ROLE · ZOMBIE · 만취생 · ${basicAttackLabel}`,
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }

@@ -22,6 +22,6 @@ export const COMBAT_RULES = {
   minimumPlayersToStart: 2,
   zombieAttackRange: 68,
   zombieAttackConeCosine: 0.35,
-  zombieAttackCooldownMs: 700,
+  zombieAttackCooldownMs: 600,
   infectionAttackLockMs: 1_500,
 } as const;
