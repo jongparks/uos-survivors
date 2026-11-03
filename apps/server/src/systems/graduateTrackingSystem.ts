@@ -5,7 +5,7 @@ import {
 
 interface TrackingRuntime { targetId: string; trackingEndsAt: number; cooldownEndsAt: number }
 const detectable = (p: PlayerState | undefined): p is PlayerState =>
-  !!p && p.role === PLAYER_ROLE.human && p.activity === PLAYER_ACTIVITY.normal && p.connected;
+  !!p && !p.escaped && p.role === PLAYER_ROLE.human && p.activity === PLAYER_ACTIVITY.normal && p.connected;
 
 export class GraduateTrackingSystem {
   private readonly runtimes = new Map<string, TrackingRuntime>();

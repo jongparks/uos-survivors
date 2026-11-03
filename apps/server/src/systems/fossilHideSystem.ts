@@ -103,7 +103,7 @@ export class FossilHideSystem {
 
     if (
       player.characterId !== CHARACTER_IDS.fossil ||
-      player.role !== PLAYER_ROLE.human ||
+      player.role !== PLAYER_ROLE.human || player.escaped ||
       !player.connected
     ) {
       return "rejected";

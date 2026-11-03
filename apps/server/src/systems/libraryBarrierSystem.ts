@@ -1,48 +1,55 @@
 import {
+  getGameMap, getMapTile, TEST_GAME_MAP, type GameMapDefinition,
   CHARACTER_IDS, GAME_PHASE, PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_BODY_SIZE,
-  LIBRARY_NPC_CONFIG as C, TILE_SIZE, TEST_MAP_WIDTH, TEST_MAP_HEIGHT, TILE_INDEX,
-  BookBarrierState, bodyOverlapsBarrier, overlapsRectangle, collidesWithTestMap, getTestMapTile,
-  type BarrierRectangle, type Position, type GameState,
+  LIBRARY_NPC_CONFIG as C, TILE_INDEX,
+  BookBarrierState, bodyOverlapsBarrier, overlapsRectangle, collidesWithTestMap, type BarrierRectangle, type Position, type GameState,
 } from "@uos-survivors/shared";
-import { PROTECTED_NAVIGATION_POINTS } from "../maps/protectedNavigationPoints.js";
 
-export function preservesNavigation(before: readonly BarrierRectangle[], candidate: BarrierRectangle, points: readonly Position[]): boolean {
-  const spacing = TILE_SIZE / 2;
-  const width = TEST_MAP_WIDTH * 2, height = TEST_MAP_HEIGHT * 2;
+
+export function preservesNavigation(before: readonly BarrierRectangle[], candidate: BarrierRectangle, points: readonly Position[], map: GameMapDefinition = TEST_GAME_MAP): boolean {
+  const spacing = map.tileSize / 2, width = Math.ceil(map.worldWidth / spacing), height = Math.ceil(map.worldHeight / spacing);
   const key = (p: Position) => Math.round(p.y / spacing) * width + Math.round(p.x / spacing);
-  const reachable = (origin: Position, barriers: readonly BarrierRectangle[]) => {
-    const valid = (x: number, y: number) => !collidesWithTestMap(x, y) && !barriers.some(b => bodyOverlapsBarrier({ x, y }, b));
-    const sx = Math.round(origin.x / spacing), sy = Math.round(origin.y / spacing);
-    const seen = new Set<number>();
-    if (!valid(sx * spacing, sy * spacing)) return seen;
-    const queue = [{ x: sx, y: sy }]; seen.add(sy * width + sx);
-    for (let index = 0; index < queue.length; index++) {
-      const p = queue[index]!;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-        const x = p.x + dx, y = p.y + dy, id = y * width + x;
-        if (x < 0 || y < 0 || x >= width || y >= height || seen.has(id) ||
-          !valid(x * spacing, y * spacing) || !valid((x + p.x) * spacing / 2, (y + p.y) * spacing / 2)) continue;
-        seen.add(id); queue.push({ x, y });
+  const components = (barriers: readonly BarrierRectangle[]) => {
+    const labels = new Int32Array(width * height).fill(-1);
+    const valid = (x: number, y: number) => !collidesWithTestMap(x, y, map) && !barriers.some(b => bodyOverlapsBarrier({ x, y }, b));
+    const walkable = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) walkable[y * width + x] = valid(x * spacing, y * spacing) ? 1 : 0;
+    let component = 0;
+    for (let origin = 0; origin < walkable.length; origin++) {
+      if (!walkable[origin] || labels[origin] !== -1) continue;
+      const queue = [origin]; labels[origin] = component;
+      for (let i = 0; i < queue.length; i++) {
+        const id = queue[i]!, x = id % width, y = Math.floor(id / width);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const nx = x + dx, ny = y + dy, next = ny * width + nx;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height || !walkable[next] || labels[next] !== -1 ||
+            !valid((x + nx) * spacing / 2, (y + ny) * spacing / 2)) continue;
+          labels[next] = component; queue.push(next);
+        }
       }
+      component++;
     }
-    return seen;
+    return labels;
   };
-  for (const point of points) {
-    const original = reachable(point, before), proposed = reachable(point, [...before, candidate]);
-    for (const goal of points) if (original.has(key(goal)) && !proposed.has(key(goal))) return false;
+  const previous = components(before), proposed = components([...before, candidate]);
+  for (const a of points) for (const b of points) {
+    const first = key(a), second = key(b);
+    if ((previous[first] ?? -1) >= 0 && previous[first] === previous[second] &&
+      ((proposed[first] ?? -1) < 0 || proposed[first] !== proposed[second])) return false;
   }
   return true;
 }
 
 export class LibraryBarrierSystem {
   private serial = 0;
-  constructor(private readonly protectedPoints: readonly Position[] = PROTECTED_NAVIGATION_POINTS) {}
+  constructor(private readonly protectedPoints?: readonly Position[]) {}
 
   tryActivate(state: GameState, id: string, now: number): boolean {
     const p = state.players.get(id);
     if (!p || state.phase !== GAME_PHASE.playing || p.characterId !== CHARACTER_IDS.libraryNpc ||
       p.role !== PLAYER_ROLE.zombie || !p.connected || p.activity !== PLAYER_ACTIVITY.normal ||
       now < p.stunnedUntil || now < p.barrierCooldownEndsAt) return false;
+    const map = getGameMap(state.mapId), TILE_SIZE = map.tileSize;
     const existing = [...state.bookBarriers.values()].filter(b => now < b.expiresAt);
     if (existing.some(b => b.ownerSessionId === id)) return false;
     const length = Math.hypot(p.facingX, p.facingY);
@@ -59,13 +66,13 @@ export class LibraryBarrierSystem {
     const left = candidate.x - candidate.width / 2, top = candidate.y - candidate.height / 2;
     for (let y = Math.floor(top / TILE_SIZE); y <= Math.floor((top + candidate.height - 0.001) / TILE_SIZE); y++) {
       for (let x = Math.floor(left / TILE_SIZE); x <= Math.floor((left + candidate.width - 0.001) / TILE_SIZE); x++) {
-        if (getTestMapTile(x, y) !== TILE_INDEX.floor) return false;
+        if (getMapTile(map, x, y) !== TILE_INDEX.floor) return false;
       }
     }
     if (existing.some(b => overlapsRectangle(candidate, b)) ||
-      [...state.players.values()].some(player => overlapsRectangle(candidate, { x: player.x, y: player.y, width: PLAYER_BODY_SIZE, height: PLAYER_BODY_SIZE }))) return false;
-    const points = [...this.protectedPoints, ...[...state.players.values()].filter(player => player.role === PLAYER_ROLE.human).map(player => ({ x: player.x, y: player.y }))];
-    if (!preservesNavigation(existing, candidate, points)) return false;
+      [...state.players.values()].some(player => !player.escaped && overlapsRectangle(candidate, { x: player.x, y: player.y, width: PLAYER_BODY_SIZE, height: PLAYER_BODY_SIZE }))) return false;
+    const points = [...(this.protectedPoints ?? map.protectedPoints), ...[...state.players.values()].filter(player => player.role === PLAYER_ROLE.human && !player.escaped).map(player => ({ x: player.x, y: player.y }))];
+    if (!preservesNavigation(existing, candidate, points, map)) return false;
     state.bookBarriers.set(`books-${++this.serial}`, candidate);
     p.barrierCooldownEndsAt = now + C.cooldownMs;
     return true;

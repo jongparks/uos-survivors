@@ -43,7 +43,7 @@ export function tryActivateSportsSprint(player: PlayerState, now: number): boole
   updateSportsSprint(player, now);
   if (
     player.characterId !== CHARACTER_IDS.sportsStudent ||
-    player.role !== PLAYER_ROLE.human ||
+    player.role !== PLAYER_ROLE.human || player.escaped ||
     player.activity !== PLAYER_ACTIVITY.normal ||
     now < player.assignmentLockEndsAt ||
     !player.connected ||

@@ -1,7 +1,7 @@
 import {
+  getGameMap, getMapTile,
   CHARACTER_IDS, DRUNKEN_ZOMBIE_CONFIG as C, GAME_PHASE, PLAYER_ACTIVITY,
-  PLAYER_BODY_SIZE, PLAYER_ROLE, TILE_SIZE, TILE_INDEX, TEST_MAP_WIDTH, TEST_MAP_HEIGHT,
-  getTestMapTile, VomitProjectileState, VomitPuddleState,
+  PLAYER_BODY_SIZE, PLAYER_ROLE, TILE_INDEX, VomitProjectileState, VomitPuddleState,
   type GameState, type PlayerState,
 } from "@uos-survivors/shared";
 
@@ -57,6 +57,8 @@ export class VomitSystem {
 
   update(state: GameState, now: number, dt: number, infect: (id: string) => void, hitDecoy: (id: string, owner: PlayerState) => void): void {
     if (state.phase !== GAME_PHASE.playing) return;
+    const map = getGameMap(state.mapId), TILE_SIZE = map.tileSize;
+    const TEST_MAP_WIDTH = Math.ceil(map.worldWidth / TILE_SIZE), TEST_MAP_HEIGHT = Math.ceil(map.worldHeight / TILE_SIZE);
     state.vomitPuddles.forEach((p, id) => { if (now >= p.expiresAt) state.vomitPuddles.delete(id); });
     const spawned = new Set<string>();
     for (const [id, direction] of this.casts) {
@@ -75,7 +77,7 @@ export class VomitSystem {
       let distance = Infinity;
       let target = "wall", targetId = "";
       for (let y = -1; y <= TEST_MAP_HEIGHT; y++) for (let x = -1; x <= TEST_MAP_WIDTH; x++) {
-        if (getTestMapTile(x, y) === TILE_INDEX.floor) continue;
+        if (getMapTile(map, x, y) === TILE_INDEX.floor) continue;
         const d = boxEntry(p.x, p.y, p.directionX, p.directionY, x * TILE_SIZE - radius, y * TILE_SIZE - radius, (x + 1) * TILE_SIZE + radius, (y + 1) * TILE_SIZE + radius);
         if (d < distance) distance = d;
       }
@@ -84,7 +86,7 @@ export class VomitSystem {
         if (d < distance) { distance = d; target = "decoy"; targetId = key; }
       }
       for (const [key, human] of [...state.players.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-        if (human.role !== PLAYER_ROLE.human || human.activity === PLAYER_ACTIVITY.hidden) continue;
+        if (human.role !== PLAYER_ROLE.human || human.escaped || human.activity === PLAYER_ACTIVITY.hidden) continue;
         const d = circleEntry(p.x, p.y, p.directionX, p.directionY, human.x, human.y, PLAYER_BODY_SIZE / 2 + radius);
         if (d < distance) { distance = d; target = "human"; targetId = key; }
       }

@@ -9,7 +9,7 @@ export function DangerVignette({ room }: { room: ConnectedGameRoom }) {
     setLevel(DANGER_LEVEL.none);
     const refresh = () => {
       const p = room.state.players?.get(room.sessionId);
-      const enabled = room.state.phase === GAME_PHASE.playing && p?.role === PLAYER_ROLE.human && p.connected &&
+      const enabled = room.state.phase === GAME_PHASE.playing && p?.role === PLAYER_ROLE.human && !p.escaped && p.connected &&
         !(p.characterId === CHARACTER_IDS.fossil && p.activity === PLAYER_ACTIVITY.hidden);
       setEnabled(!!enabled);
     };

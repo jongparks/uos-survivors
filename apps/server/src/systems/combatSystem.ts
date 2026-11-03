@@ -56,7 +56,7 @@ export function findZombieAttackTarget(
     if (
       targetSessionId === attackerSessionId ||
       !target.connected ||
-      target.role !== PLAYER_ROLE.human ||
+      target.role !== PLAYER_ROLE.human || target.escaped ||
       target.activity === PLAYER_ACTIVITY.hidden ||
       !isInsideAttackCone(attacker, target)
     ) {

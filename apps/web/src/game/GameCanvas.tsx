@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Phaser from "phaser";
 
 import type { ConnectedGameRoom } from "../network/useGameRoom";
@@ -12,9 +12,15 @@ interface GameCanvasProps {
 
 export function GameCanvas({ room }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [readyMap, setReadyMap] = useState(room.state.mapId ?? "");
+  useEffect(() => {
+    const refresh = () => setReadyMap(room.state.mapId ?? "");
+    refresh(); room.onStateChange(refresh);
+    return () => room.onStateChange.remove(refresh);
+  }, [room]);
 
   useEffect(() => {
-    if (!containerRef.current) {
+    if (!containerRef.current || !readyMap || readyMap !== room.state.mapId) {
       return undefined;
     }
 
@@ -43,7 +49,7 @@ export function GameCanvas({ room }: GameCanvasProps) {
       scene.dispose();
       game.destroy(true);
     };
-  }, [room]);
+  }, [room, readyMap]);
 
   return <div className="game-canvas" ref={containerRef}><DangerVignette room={room} /><ConfusionOverlay room={room} /></div>;
 }

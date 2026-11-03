@@ -1,5 +1,5 @@
 import {
-  CHARACTER_IDS, COMPUTER_STUDENT_CONFIG as C, GAME_PHASE, PLAYER_ACTIVITY, PLAYER_ROLE,
+  getGameMap, CHARACTER_IDS, COMPUTER_STUDENT_CONFIG as C, GAME_PHASE, PLAYER_ACTIVITY, PLAYER_ROLE,
   PLAYER_BODY_SIZE, collidesWithTestMap, bodyOverlapsBarrier, overlapsRectangle,
   type GameState, type Position, type PlayerState,
 } from "@uos-survivors/shared";
@@ -54,7 +54,7 @@ export class ComputerRewindSystem {
   private readonly histories = new Map<string, History>();
   record(state: GameState, id: string, now: number): void {
     const p = state.players.get(id);
-    if (!p || state.phase !== GAME_PHASE.playing || p.role !== PLAYER_ROLE.human || p.characterId !== CHARACTER_IDS.computerStudent) { this.histories.delete(id); return; }
+    if (!p || state.phase !== GAME_PHASE.playing || p.role !== PLAYER_ROLE.human || p.escaped || p.characterId !== CHARACTER_IDS.computerStudent) { this.histories.delete(id); return; }
     const current = { timestamp: now, x: p.x, y: p.y };
     let history = this.histories.get(id);
     if (!history) {
@@ -72,7 +72,7 @@ export class ComputerRewindSystem {
 
   tryActivate(state: GameState, id: string, now: number): boolean {
     const p = state.players.get(id), history = this.histories.get(id);
-    if (!p || !history || state.phase !== GAME_PHASE.playing || p.role !== PLAYER_ROLE.human ||
+    if (!p || !history || state.phase !== GAME_PHASE.playing || p.role !== PLAYER_ROLE.human || p.escaped ||
       p.characterId !== CHARACTER_IDS.computerStudent || !p.connected || p.activity !== PLAYER_ACTIVITY.normal ||
       now < p.stunnedUntil || now < p.assignmentLockEndsAt || now < p.rewindCooldownEndsAt || p.trapCastEndsAt > now || p.dashEndsAt > now || p.vomitCastEndsAt > now) return false;
     const snapshots = [...history.ring.values(), { timestamp: now, x: p.x, y: p.y }];
@@ -88,10 +88,10 @@ export class ComputerRewindSystem {
   }
 
   private valid(state: GameState, id: string, p: Position, now: number): boolean {
-    if (collidesWithTestMap(p.x, p.y)) return false;
+    if (collidesWithTestMap(p.x, p.y, getGameMap(state.mapId))) return false;
     for (const barrier of state.bookBarriers.values()) if (now < barrier.expiresAt && bodyOverlapsBarrier(p, barrier)) return false;
     for (const [otherId, other] of state.players) {
-      if (id !== otherId && overlapsRectangle({ ...p, width: PLAYER_BODY_SIZE, height: PLAYER_BODY_SIZE }, { x: other.x, y: other.y, width: PLAYER_BODY_SIZE, height: PLAYER_BODY_SIZE })) return false;
+      if (id !== otherId && !other.escaped && overlapsRectangle({ ...p, width: PLAYER_BODY_SIZE, height: PLAYER_BODY_SIZE }, { x: other.x, y: other.y, width: PLAYER_BODY_SIZE, height: PLAYER_BODY_SIZE })) return false;
     }
     return true;
   }

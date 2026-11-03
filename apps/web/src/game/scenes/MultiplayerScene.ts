@@ -25,11 +25,7 @@ import {
   SCULPTURE_STUDENT_CONFIG,
   SPORTS_STUDENT_CONFIG,
   SPRINT_STATE,
-  TEST_MAP_DATA,
-  TEST_MAP_HEIGHT,
-  TEST_MAP_WIDTH,
-  TILE_INDEX,
-  TILE_SIZE,
+  getGameMap, type GameMapDefinition,
   applyMovementWithBarriers,
   LIBRARY_PLACEMENT_FAILED_MESSAGE,
   LATE_ZOMBIE_CONFIG,
@@ -43,7 +39,8 @@ import type { ConnectedGameRoom } from "../../network/useGameRoom";
 import { NetworkDecoyView } from "../entities/NetworkDecoyView";
 import { NetworkPlayerView } from "../entities/NetworkPlayerView";
 import { KeyboardInput } from "../input/KeyboardInput";
-import { createGeneratedTextures, TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
+import { createGeneratedTextures } from "../rendering/createGeneratedTextures";
+import { renderGameMap } from "../rendering/renderGameMap";
 import { ZOMBIE_DESIGNS } from "../rendering/zombieDesigns";
 
 interface FossilHideSpotMarker {
@@ -55,6 +52,8 @@ interface FossilHideSpotMarker {
 
 export class MultiplayerScene extends Phaser.Scene {
   private readonly room: ConnectedGameRoom;
+  private readonly gameMap: GameMapDefinition;
+  private readonly gateLabels = new Map<string, Phaser.GameObjects.Text>();
   private readonly playerViews = new Map<string, NetworkPlayerView>();
   private readonly decoyViews = new Map<string, NetworkDecoyView>();
   private readonly confusionLabels = new Map<string, Phaser.GameObjects.Text>();
@@ -89,6 +88,7 @@ export class MultiplayerScene extends Phaser.Scene {
   constructor(room: ConnectedGameRoom) {
     super("multiplayer");
     this.room = room;
+    this.gameMap = getGameMap(room.state.mapId);
   }
 
   preload(): void {
@@ -122,13 +122,13 @@ export class MultiplayerScene extends Phaser.Scene {
       mode: "lerp",
       fields: ["x", "y"],
       delay: NETWORK_RATE.interpolationDelayMs,
-      snap: TILE_SIZE * 2,
+      snap: this.gameMap.tileSize * 2,
     });
     this.predict.attachAll("decoys", {
       mode: "lerp",
       fields: ["x", "y"],
       delay: NETWORK_RATE.interpolationDelayMs,
-      snap: TILE_SIZE * 2,
+      snap: this.gameMap.tileSize * 2,
     });
 
     const callbacks = Callbacks.get(this.room);
@@ -243,7 +243,7 @@ export class MultiplayerScene extends Phaser.Scene {
         const localPlayer = this.room.state.players.get(this.room.sessionId);
         const isHidden = localPlayer?.activity === PLAYER_ACTIVITY.hidden;
         const isStunned = (localPlayer?.stunnedUntil ?? 0) > Date.now();
-        const actionsLocked = isHidden || isStunned || (localPlayer?.assignmentLockEndsAt ?? 0) > Date.now() || (this.assignmentChallenge?.expiresAt ?? 0) > Date.now();
+        const actionsLocked = !!localPlayer?.escaped || isHidden || isStunned || (localPlayer?.assignmentLockEndsAt ?? 0) > Date.now() || (this.assignmentChallenge?.expiresAt ?? 0) > Date.now();
         this.movementInput.data.moveX = (actionsLocked ? 0 : controls.moveX) as -1 | 0 | 1;
         this.movementInput.data.moveY = (actionsLocked ? 0 : controls.moveY) as -1 | 0 | 1;
         this.movementInput.data.interact = actionsLocked ? false : controls.interact;
@@ -261,29 +261,7 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   private createMap(): void {
-    const map = this.make.tilemap({
-      data: TEST_MAP_DATA,
-      tileWidth: TILE_SIZE,
-      tileHeight: TILE_SIZE,
-    });
-    const tileset = map.addTilesetImage(
-      TEXTURE_KEYS.map,
-      TEXTURE_KEYS.map,
-      TILE_SIZE,
-      TILE_SIZE,
-      0,
-      0,
-      TILE_INDEX.floor,
-    );
-
-    if (!tileset || !map.createLayer(0, tileset, 0, 0)) {
-      throw new Error("Failed to create the multiplayer test map");
-    }
-
-    const worldWidth = TEST_MAP_WIDTH * TILE_SIZE;
-    const worldHeight = TEST_MAP_HEIGHT * TILE_SIZE;
-    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
-    this.cameras.main.setRoundPixels(true);
+    renderGameMap(this, this.gameMap);
   }
 
   private addPlayer(player: PlayerState, sessionId: string): void {
@@ -302,14 +280,14 @@ export class MultiplayerScene extends Phaser.Scene {
         input: this.movementInput,
         fields: ["x", "y"],
         smoothMs: NETWORK_RATE.correctionSmoothMs,
-        snap: TILE_SIZE * 2,
+        snap: this.gameMap.tileSize * 2,
         step: (context, state, command) => {
-          if (state.assignmentLockEndsAt > Date.now() || state.trapCastEndsAt > Date.now() || state.rootedUntil > Date.now()) return;
+          if (state.escaped || state.assignmentLockEndsAt > Date.now() || state.trapCastEndsAt > Date.now() || state.rootedUntil > Date.now()) return;
           if (state.dashEndsAt > Date.now()) {
-            const remaining = Math.max(0, TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles - Math.hypot(state.x - state.dashStartX, state.y - state.dashStartY));
-            const speed = Math.min(TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles / (LATE_ZOMBIE_CONFIG.dashDurationMs / 1000), remaining / context.dt);
+            const remaining = Math.max(0, this.gameMap.tileSize * LATE_ZOMBIE_CONFIG.dashDistanceTiles - Math.hypot(state.x - state.dashStartX, state.y - state.dashStartY));
+            const speed = Math.min(this.gameMap.tileSize * LATE_ZOMBIE_CONFIG.dashDistanceTiles / (LATE_ZOMBIE_CONFIG.dashDurationMs / 1000), remaining / context.dt);
             applyMovementWithBarriers(state, { moveX: state.dashDirectionX, moveY: state.dashDirectionY },
-              Date.now() < state.stunnedUntil ? 0 : speed, context.dt, state.role, this.room.state.bookBarriers.values(), Date.now());
+              Date.now() < state.stunnedUntil ? 0 : speed, context.dt, state.role, this.room.state.bookBarriers.values(), Date.now(), this.gameMap);
             return;
           }
           const speedMultiplier = getCharacterSpeedMultiplier(state.characterId, state.role, state.sprintState, state.isDisguised);
@@ -318,7 +296,7 @@ export class MultiplayerScene extends Phaser.Scene {
             getConfusedMovement(state, command, Date.now()),
             Date.now() < state.stunnedUntil ? 0 : PLAYER_SPEED * speedMultiplier * getPuddleSpeedMultiplier(this.room.state, state, Date.now()),
             context.dt,
-            state.role, this.room.state.bookBarriers.values(), Date.now(),
+            state.role, this.room.state.bookBarriers.values(), Date.now(), this.gameMap,
           );
         },
       });
@@ -382,8 +360,8 @@ export class MultiplayerScene extends Phaser.Scene {
       this.room.state.phase === GAME_PHASE.waiting
         ? "WAITING · NEED 4–8 PLAYERS · HOST START"
         : this.room.state.phase === GAME_PHASE.finished
-          ? "MATCH FINISHED · ZOMBIE WIN"
-          : "MATCH ACTIVE · INFECTION SPREADING";
+          ? `MATCH FINISHED · ${this.room.state.winner === "human" ? "HUMAN" : "ZOMBIE"} WIN`
+          : `${this.room.state.roundStage === "ESCAPE" ? "ESCAPE" : this.room.state.exitWarning ? "15초 후 출구 개방" : "SURVIVAL"} · ${Math.floor(Math.max(0, this.room.state.matchEndsAt - Date.now()) / 60000)}:${String(Math.floor(Math.max(0, this.room.state.matchEndsAt - Date.now()) / 1000) % 60).padStart(2, "0")}`;
     const isZombie = player.role === PLAYER_ROLE.zombie;
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
     const characterLabel =
@@ -412,7 +390,7 @@ export class MultiplayerScene extends Phaser.Scene {
       this.room.state.phase === GAME_PHASE.finished ? "#ff746c" : "#f0c66b",
     );
     this.roleStatusText?.setText(
-      isHidden
+      player.escaped ? "탈출 완료 · 인간 승리 확보 · 관전 중" : isHidden
         ? `화석 · 은신 중 · ${Math.max(0, player.hideEndsAt - Date.now()) / 1_000 < 0.05 ? "종료 중" : `${(Math.max(0, player.hideEndsAt - Date.now()) / 1_000).toFixed(1)}s`}`
         : !isZombie
         ? `ROLE · HUMAN · ${characterLabel}`
@@ -430,6 +408,11 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.escaped) { this.hidePromptText?.setVisible(false); return; }
+    const exit = [...this.room.state.gates.values()].find(g => g.status === 'OPEN' && Math.hypot(player.x - g.x, player.y - g.y) <= g.interactionRadius);
+    if (exit && player.role === PLAYER_ROLE.human && player.activity === PLAYER_ACTIVITY.normal && Date.now() >= player.assignmentLockEndsAt) {
+      this.hidePromptText?.setText(`[SPACE 유지] ${exit.name} 탈출 · ${player.escapeStartedAt ? Math.min(1, (Date.now() - player.escapeStartedAt) / 1000).toFixed(1) : '0.0'}/1.0초`).setVisible(true); return;
+    }
     if (player.assignmentLockEndsAt > Date.now()) {
       this.hidePromptText?.setText("과제 제출 중 · 방향키 미션을 완료하세요").setVisible(true); return;
     }
@@ -676,6 +659,18 @@ export class MultiplayerScene extends Phaser.Scene {
     const g = this.barrierGraphics;
     if (!g) return;
     g.clear();
+    this.room.state.gates.forEach((gate, id) => {
+      let label = this.gateLabels.get(id);
+      if (!label) {
+        label = this.add.text(gate.x, gate.y - 36, gate.name, { fontFamily: "sans-serif", fontSize: "13px", color: "#a8ffc8", backgroundColor: "#10251bdd", padding: { x: 4, y: 2 } }).setOrigin(0.5).setDepth(20);
+        this.gateLabels.set(id, label);
+      }
+      label.setVisible(gate.status === "OPEN");
+      if (gate.status === "OPEN") {
+        g.fillStyle(0x58d997, 0.15).fillCircle(gate.x, gate.y, gate.interactionRadius);
+        g.lineStyle(3, 0x8df4be, 0.85).strokeRect(gate.x - 20, gate.y - 20, 40, 40);
+      }
+    });
     this.room.state.engineeringTraps.forEach(trap => {
       if (Date.now() >= trap.expiresAt) return;
       const armed = Date.now() >= trap.activatesAt;
@@ -739,6 +734,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.callbackDisposers.splice(0).forEach((dispose) => dispose());
     this.playerViews.forEach((view) => view.destroy());
     this.playerViews.clear();
+    this.gateLabels.forEach(label => label.destroy()); this.gateLabels.clear();
     this.confusionLabels.forEach(label => label.destroy()); this.confusionLabels.clear();
     this.decoyViews.forEach((view) => view.destroy());
     this.decoyViews.clear();

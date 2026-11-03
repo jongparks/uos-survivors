@@ -12,6 +12,10 @@ export const PlayerState = schema(
     nickname: t.string().default(""),
     connected: t.boolean().default(true),
     role: t.string().default(PLAYER_ROLE.human),
+    escaped: t.boolean().default(false),
+    personalResult: t.string().default(""),
+    escapeStartedAt: t.float64().default(0),
+    escapingGateId: t.string().default(""),
     characterId: t.string().default(UNASSIGNED_CHARACTER_ID),
     activity: t.string().default(PLAYER_ACTIVITY.normal),
     activeHideSpotId: t.string().default(""),
@@ -95,9 +99,20 @@ export const EngineeringTrapState = schema({
 }, "EngineeringTrapState");
 export type EngineeringTrapState = SchemaType<typeof EngineeringTrapState>;
 
+export const EscapeGateState = schema({ name: t.string(), x: t.float32(), y: t.float32(), interactionRadius: t.float32(), status: t.string().default("LOCKED") }, "EscapeGateState");
+export const RoundResultState = schema({ nickname: t.string(), startedAsHuman: t.boolean(), result: t.string().default("") }, "RoundResultState");
+
 export const GameState = schema(
   {
     roomCode: t.string().default(""),
+    mapId: t.string().default("MAP_TEST"),
+    matchEndsAt: t.float64().default(0),
+    exitsOpenAt: t.float64().default(0),
+    exitWarning: t.boolean().default(false),
+    roundStage: t.string().default("WAITING"),
+    escapedCount: t.uint8().default(0),
+    gates: t.map(EscapeGateState),
+    roundResults: t.map(RoundResultState),
     hostSessionId: t.string().default(""),
     matchStartedAt: t.float64().default(0),
     matchParticipantCount: t.uint8().default(0),

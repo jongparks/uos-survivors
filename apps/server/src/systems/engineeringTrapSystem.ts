@@ -1,12 +1,12 @@
 import {
-  CHARACTER_IDS, ENGINEERING_TRAP_CONFIG as C, EngineeringTrapState, GAME_PHASE, PLAYER_ACTIVITY,
+  getGameMap, CHARACTER_IDS, ENGINEERING_TRAP_CONFIG as C, EngineeringTrapState, GAME_PHASE, PLAYER_ACTIVITY,
   PLAYER_ROLE, PLAYER_BODY_SIZE, TILE_SIZE, collidesWithTestMap,
   type GameState, type PlayerState, type Position,
 } from "@uos-survivors/shared";
 import { endXmanDisguise } from "./xmanDisguiseSystem.js";
 
-export function canSeeEngineeringTrap(viewer: PlayerState, trap: EngineeringTrapState): boolean {
-  return viewer.role === PLAYER_ROLE.human || Math.hypot(viewer.x - trap.x, viewer.y - trap.y) <= C.zombieVisibilityTiles * TILE_SIZE;
+export function canSeeEngineeringTrap(viewer: PlayerState, trap: EngineeringTrapState, tileSize = TILE_SIZE): boolean {
+  return viewer.role === PLAYER_ROLE.human || Math.hypot(viewer.x - trap.x, viewer.y - trap.y) <= C.zombieVisibilityTiles * tileSize;
 }
 
 export class EngineeringTrapSystem {
@@ -16,7 +16,7 @@ export class EngineeringTrapSystem {
   tryActivate(state: GameState, id: string, now: number): boolean {
     const p = state.players.get(id);
     if (!p || state.phase !== GAME_PHASE.playing || p.characterId !== CHARACTER_IDS.engineeringStudent ||
-      p.role !== PLAYER_ROLE.human || !p.connected || p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.assignmentLockEndsAt ||
+      p.role !== PLAYER_ROLE.human || p.escaped || !p.connected || p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.assignmentLockEndsAt ||
       now < p.trapCooldownEndsAt || this.casts.has(id) ||
       [...state.engineeringTraps.values()].some(t => t.ownerSessionId === id)) return false;
     p.trapCastEndsAt = now + C.castTimeMs;
@@ -27,15 +27,15 @@ export class EngineeringTrapSystem {
     if (state.phase !== GAME_PHASE.playing) { this.clear(state); return; }
     state.engineeringTraps.forEach((trap, id) => {
       const owner = state.players.get(trap.ownerSessionId);
-      if (now >= trap.expiresAt || !owner || owner.role !== PLAYER_ROLE.human) state.engineeringTraps.delete(id);
+      if (now >= trap.expiresAt || !owner || owner.role !== PLAYER_ROLE.human || owner.escaped) state.engineeringTraps.delete(id);
     });
     for (const [id, start] of this.casts) {
       const p = state.players.get(id);
-      if (!p || p.role !== PLAYER_ROLE.human || p.characterId !== CHARACTER_IDS.engineeringStudent || !p.connected ||
+      if (!p || p.role !== PLAYER_ROLE.human || p.escaped || p.characterId !== CHARACTER_IDS.engineeringStudent || !p.connected ||
         p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.assignmentLockEndsAt) { this.cancel(id, p); continue; }
       if (now < p.trapCastEndsAt) continue;
       this.cancel(id, p);
-      if (collidesWithTestMap(start.x, start.y)) continue;
+      if (collidesWithTestMap(start.x, start.y, getGameMap(state.mapId))) continue;
       const trap = new EngineeringTrapState();
       Object.assign(trap, { ownerSessionId: id, x: start.x, y: start.y, createdAt: now,
         activatesAt: now + C.activationDelayMs, expiresAt: now + C.lifetimeMs });

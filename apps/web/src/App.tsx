@@ -1,6 +1,7 @@
 import { LobbyPanel } from "./components/LobbyPanel";
 import { GameCanvas } from "./game/GameCanvas";
 import { MatchPanel } from "./game/MatchPanel";
+import { MatchHud } from "./game/MatchHud";
 import { useGameRoom } from "./network/useGameRoom";
 
 const STATUS_LABELS = {
@@ -26,6 +27,7 @@ export function App() {
       {connection.room ? (
         <>
           <MatchPanel room={connection.room} />
+          <MatchHud room={connection.room} />
           <section className="game-frame" aria-label="Phaser multiplayer game">
             <GameCanvas room={connection.room} />
           </section>

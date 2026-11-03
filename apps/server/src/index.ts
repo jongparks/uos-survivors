@@ -11,7 +11,7 @@ const port = Number.isFinite(parsedPort) ? parsedPort : GAME_SERVER.port;
 
 const server = defineServer({
   rooms: {
-    [ROOM_NAMES.game]: defineRoom(GameRoom),
+    [ROOM_NAMES.game]: defineRoom(GameRoom).filterBy(["mapId"]),
   },
   transport: new WebSocketTransport(),
   express: (app) => {

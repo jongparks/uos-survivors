@@ -1,22 +1,24 @@
 import {
   COMBAT_RULES,
-  GAME_PHASE,
-  MATCH_WINNER,
   PLAYER_ACTIVITY,
   PLAYER_ROLE,
   SPRINT_STATE,
   CHARACTER_IDS,
   type GameState,
 } from "@uos-survivors/shared";
+import { finishIfNoActiveHumans } from "./matchOutcomeSystem.js";
 
 export function infectHuman(state: GameState, sessionId: string, now: number): boolean {
   const player = state.players.get(sessionId);
 
-  if (!player || player.role !== PLAYER_ROLE.human) {
+  if (!player || player.role !== PLAYER_ROLE.human || player.escaped) {
     return false;
   }
 
   player.role = PLAYER_ROLE.zombie;
+  player.personalResult = "INFECTED";
+  player.escapeStartedAt = 0; player.escapingGateId = "";
+  const result = state.roundResults.get(sessionId); if (result) result.result = "INFECTED";
   state.decoys.forEach((decoy, id) => {
     if (decoy.ownerSessionId === sessionId || id === player.activeDecoyId) state.decoys.delete(id);
   });
@@ -61,19 +63,5 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
 }
 
 export function finishIfAllHumansInfected(state: GameState): boolean {
-  if (state.phase !== GAME_PHASE.playing) {
-    return false;
-  }
-
-  const humanCount = Array.from(state.players.values()).filter(
-    (player) => player.role === PLAYER_ROLE.human,
-  ).length;
-
-  if (humanCount > 0) {
-    return false;
-  }
-
-  state.phase = GAME_PHASE.finished;
-  state.winner = MATCH_WINNER.zombie;
-  return true;
+  return finishIfNoActiveHumans(state);
 }

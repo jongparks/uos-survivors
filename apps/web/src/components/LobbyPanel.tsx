@@ -1,5 +1,7 @@
 import {
   GAME_LIMITS,
+  GAME_MAPS,
+  DEFAULT_MAP_ID,
   ROOM_VISIBILITY,
   type RoomVisibility,
 } from "@uos-survivors/shared";
@@ -8,9 +10,9 @@ import { useState, type FormEvent } from "react";
 interface LobbyPanelProps {
   connecting: boolean;
   error: string | null;
-  onCreateRoom: (nickname: string, visibility: RoomVisibility) => Promise<void>;
+  onCreateRoom: (nickname: string, visibility: RoomVisibility, mapId?: string) => Promise<void>;
   onJoinRoom: (roomCode: string, nickname: string) => Promise<void>;
-  onQuickJoin: (nickname: string) => Promise<void>;
+  onQuickJoin: (nickname: string, mapId?: string) => Promise<void>;
 }
 
 export function LobbyPanel({
@@ -21,6 +23,7 @@ export function LobbyPanel({
   onQuickJoin,
 }: LobbyPanelProps) {
   const [nickname, setNickname] = useState("");
+  const [mapId, setMapId] = useState(DEFAULT_MAP_ID);
   const [roomCode, setRoomCode] = useState("");
   const [visibility, setVisibility] = useState<RoomVisibility>(ROOM_VISIBILITY.public);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -48,7 +51,7 @@ export function LobbyPanel({
     const normalizedNickname = validateNickname();
 
     if (normalizedNickname) {
-      await onCreateRoom(normalizedNickname, visibility);
+      await onCreateRoom(normalizedNickname, visibility, mapId);
     }
   };
 
@@ -56,7 +59,7 @@ export function LobbyPanel({
     const normalizedNickname = validateNickname();
 
     if (normalizedNickname) {
-      await onQuickJoin(normalizedNickname);
+      await onQuickJoin(normalizedNickname, mapId);
     }
   };
 
@@ -85,6 +88,9 @@ export function LobbyPanel({
       </div>
 
       <form className="lobby-form" onSubmit={handleCreate}>
+        <label><span>맵</span><select value={mapId} onChange={event => setMapId(event.target.value)} disabled={connecting}>
+          {Object.values(GAME_MAPS).map(map => <option key={map.id} value={map.id}>{map.name}</option>)}
+        </select></label>
         <label>
           <span>닉네임</span>
           <input

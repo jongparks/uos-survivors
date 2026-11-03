@@ -1,6 +1,6 @@
 import {
-  ASSIGNMENT_DIRECTIONS, CHARACTER_IDS, GAME_PHASE, PLAYER_ACTIVITY, PLAYER_ROLE, PROFESSOR_CONFIG as C, TILE_SIZE,
-  type AssignmentChallengeView, type AssignmentDirection, type GameState,
+  getGameMap,
+  ASSIGNMENT_DIRECTIONS, CHARACTER_IDS, GAME_PHASE, PLAYER_ACTIVITY, PLAYER_ROLE, PROFESSOR_CONFIG as C, type AssignmentChallengeView, type AssignmentDirection, type GameState,
 } from "@uos-survivors/shared";
 
 interface Challenge extends AssignmentChallengeView { casterId: string; targetId: string }
@@ -22,9 +22,9 @@ export class ProfessorAssignmentSystem {
     const p = state.players.get(id);
     if (!p || state.phase !== GAME_PHASE.playing || p.characterId !== CHARACTER_IDS.professor || p.role !== PLAYER_ROLE.zombie ||
       !p.connected || p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.professorCooldownEndsAt) return false;
-    let targetId = "", best = (C.rangeTiles * TILE_SIZE) ** 2;
+    let targetId = "", best = (C.rangeTiles * getGameMap(state.mapId).tileSize) ** 2;
     for (const [candidateId, candidate] of [...state.players.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-      if (candidate.role !== PLAYER_ROLE.human || !candidate.connected || candidate.activity !== PLAYER_ACTIVITY.normal ||
+      if (candidate.role !== PLAYER_ROLE.human || candidate.escaped || !candidate.connected || candidate.activity !== PLAYER_ACTIVITY.normal ||
         now < candidate.assignmentLockEndsAt || this.challenges.has(candidateId)) continue;
       const distance = (candidate.x - p.x) ** 2 + (candidate.y - p.y) ** 2;
       if (distance <= best && (!targetId || distance < best)) { best = distance; targetId = candidateId; }
@@ -56,7 +56,7 @@ export class ProfessorAssignmentSystem {
   update(state: GameState, now: number, send: Send): void {
     for (const [id, challenge] of this.challenges) {
       const target = state.players.get(id), caster = state.players.get(challenge.casterId);
-      if (state.phase !== GAME_PHASE.playing || !target?.connected || target.role !== PLAYER_ROLE.human || !caster?.connected || caster.role !== PLAYER_ROLE.zombie) {
+      if (state.phase !== GAME_PHASE.playing || !target?.connected || target.role !== PLAYER_ROLE.human || target.escaped || !caster?.connected || caster.role !== PLAYER_ROLE.zombie) {
         this.release(state, id, "cancelled", send);
       } else if (now >= challenge.expiresAt) this.release(state, id, "expired", send);
     }

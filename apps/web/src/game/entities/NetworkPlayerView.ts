@@ -76,7 +76,7 @@ export class NetworkPlayerView {
           : 0x9bb7ff,
     );
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
-    this.sprite.setAlpha(isHidden ? 0.24 : player.connected ? 1 : 0.42);
+    this.sprite.setAlpha(player.escaped ? 0.25 : isHidden ? 0.24 : player.connected ? 1 : 0.42);
     this.label.setPosition(x, y - (design ? 48 : 34));
     this.label.setAlpha(isHidden ? 0.72 : player.connected ? 1 : 0.62);
     const roleLabel = player.role === PLAYER_ROLE.zombie && !disguised

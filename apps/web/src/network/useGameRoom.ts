@@ -1,6 +1,7 @@
 import { Callbacks, Client, type Room } from "@colyseus/sdk";
 import {
   GAME_SERVER,
+  DEFAULT_MAP_ID,
   RECONNECTION,
   ROOM_NAMES,
   ROOM_VISIBILITY,
@@ -21,8 +22,8 @@ interface GameRoomConnection {
   playerCount: number;
   isPrivate: boolean;
   error: string | null;
-  createRoom: (nickname: string, visibility: RoomVisibility) => Promise<void>;
-  quickJoin: (nickname: string) => Promise<void>;
+  createRoom: (nickname: string, visibility: RoomVisibility, mapId?: string) => Promise<void>;
+  quickJoin: (nickname: string, mapId?: string) => Promise<void>;
   joinRoom: (roomCode: string, nickname: string) => Promise<void>;
   leaveRoom: () => Promise<void>;
 }
@@ -125,19 +126,20 @@ export function useGameRoom(): GameRoomConnection {
   );
 
   const createRoom = useCallback(
-    async (nickname: string, visibility: RoomVisibility) => {
+    async (nickname: string, visibility: RoomVisibility, mapId = DEFAULT_MAP_ID) => {
       await connect(() =>
-        client.create<GameState>(ROOM_NAMES.game, { nickname, visibility }),
+        client.create<GameState>(ROOM_NAMES.game, { nickname, visibility, mapId }),
       );
     },
     [client, connect],
   );
 
   const quickJoin = useCallback(
-    async (nickname: string) => {
+    async (nickname: string, mapId = DEFAULT_MAP_ID) => {
       await connect(() =>
         client.joinOrCreate<GameState>(ROOM_NAMES.game, {
           nickname,
+          mapId,
           visibility: ROOM_VISIBILITY.public,
         }),
       );

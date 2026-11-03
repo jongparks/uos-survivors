@@ -8,6 +8,7 @@ import {
   LIBRARY_PLACEMENT_FAILED_MESSAGE, MATCH_MESSAGES, MovementInput, NETWORK_RATE,
   PLAYER_SPEED, PLAYER_ROLE, ROOM_NAMES, ROOM_VISIBILITY, validateAssignments,
   ASSIGNMENT_MESSAGES,
+  DEFAULT_MAP_ID, getGameMap,
   TEST_MAP_WIDTH, TEST_MAP_HEIGHT, TILE_INDEX, TILE_SIZE, getTestMapTile, tileToWorld,
 } from "@uos-survivors/shared";
 
@@ -50,14 +51,29 @@ try {
     try { return (await fetch(endpoint + "/health")).ok; } catch { return false; }
   }, "Server failed to start", 240);
   const privateHost = track(await new Client(endpoint).create(ROOM_NAMES.game, {
-    nickname: "PrivateHost", visibility: ROOM_VISIBILITY.private,
+    nickname: "PrivateHost", visibility: ROOM_VISIBILITY.private, mapId: "MAP_TEST",
   }));
+  const campusHost = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
+    nickname: "CampusHost", visibility: ROOM_VISIBILITY.public, mapId: DEFAULT_MAP_ID,
+  }));
+  const campusGuest = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
+    nickname: "CampusGuest", visibility: ROOM_VISIBILITY.public, mapId: DEFAULT_MAP_ID,
+  }));
+  if (campusGuest.roomId !== campusHost.roomId) throw new Error("Campus quick join did not match the selected map");
+  for (let i = 0; i < 2; i++) track(await new Client(endpoint).joinById(campusHost.roomId, { nickname: "Campus" + i }));
+  campusHost.send(MATCH_MESSAGES.start);
+  await waitUntil(() => campusHost.state.phase === GAME_PHASE.playing, "Campus match did not start");
+  verify(campusHost, 4);
+  if (campusHost.state.mapId !== DEFAULT_MAP_ID || getGameMap(campusHost.state.mapId).tileSize !== 32 ||
+    campusHost.state.matchEndsAt - campusHost.state.matchStartedAt !== 420000 ||
+    [...campusHost.state.gates.values()].some(g => g.status !== "LOCKED")) throw new Error("Campus map/timer/secret gate state mismatch");
   const publicHost = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
-    nickname: "PublicHost", visibility: ROOM_VISIBILITY.public,
+    nickname: "PublicHost", visibility: ROOM_VISIBILITY.public, mapId: "MAP_TEST",
   }));
+  if (publicHost.roomId === campusHost.roomId) throw new Error("Quick join mixed different maps");
   if (privateHost.roomId === publicHost.roomId) throw new Error("Quick join entered a private room");
   const publicGuest = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
-    nickname: "PublicGuest", visibility: ROOM_VISIBILITY.public,
+    nickname: "PublicGuest", visibility: ROOM_VISIBILITY.public, mapId: "MAP_TEST",
   }));
   if (publicGuest.roomId !== publicHost.roomId) throw new Error("Quick join did not reuse waiting public room");
   for (let i = 0; i < 6; i++) {

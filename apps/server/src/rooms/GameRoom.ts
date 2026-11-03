@@ -18,9 +18,10 @@ import {
   MovementInput,
   NETWORK_RATE,
   PLAYER_SPEED,
-  PLAYER_SPAWNS,
+  PLAYER_BODY_SIZE,
   PLAYER_ACTIVITY,
   PlayerState,
+  RoundResultState, DEFAULT_MAP_ID, getGameMap, validateGameMap,
   PLAYER_ROLE,
   RECONNECTION,
   ROOM_VISIBILITY,
@@ -31,14 +32,12 @@ import {
   MATCH_MESSAGES,
   SPECIAL_ZOMBIE_CHARACTER_IDS,
   pickInitialZombieCharacter,
-  tileToWorld,
   getPuddleSpeedMultiplier,
   getConfusedMovement,
   type RoomVisibility,
 } from "@uos-survivors/shared";
 
 import { generateRoomCodeCandidate, normalizeNickname } from "../config/playerIdentity.js";
-import { CURRENT_MAP_HIDE_SPOT_CANDIDATES } from "../maps/hideSpotRegistry.js";
 import { resolveZombieAttack } from "../systems/combatSystem.js";
 import { FossilHideSystem } from "../systems/fossilHideSystem.js";
 import { finishIfAllHumansInfected, infectHuman } from "../systems/infectionSystem.js";
@@ -51,6 +50,7 @@ import { HumanDangerSystem, calculateHumanDanger } from "../systems/humanDangerS
 import { EngineeringTrapSystem, canSeeEngineeringTrap } from "../systems/engineeringTrapSystem.js";
 import { ComputerRewindSystem } from "../systems/computerRewindSystem.js";
 import { tryActivateSocraticMethod, updateConfusion, resetPhilosophyState } from "../systems/philosophyConfusionSystem.js";
+import { MatchTimerGateSystem } from "../systems/matchTimerGateSystem.js";
 import { ProfessorAssignmentSystem } from "../systems/professorAssignmentSystem.js";
 import { resetXmanDisguise, updateXmanDisguise, tryToggleXmanDisguise } from "../systems/xmanDisguiseSystem.js";
 import {
@@ -63,6 +63,7 @@ import {
 const INVITE_CODE_CHANNEL = "$uos-survivors-room-codes";
 
 interface RoomOptions {
+  mapId?: string;
   nickname?: unknown;
   visibility?: RoomVisibility;
 }
@@ -72,7 +73,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   maxClients = GAME_LIMITS.maxPlayersPerRoom;
   patchRate = 1000 / NETWORK_RATE.stateSyncHz;
   maxMessagesPerSecond = 60;
-  private readonly fossilHideSystem = new FossilHideSystem(CURRENT_MAP_HIDE_SPOT_CANDIDATES);
+  private fossilHideSystem = new FossilHideSystem([]);
+  private readonly matchTimerGateSystem = new MatchTimerGateSystem();
+  private finishedCleanupDone = false;
   private readonly sculptureDecoySystem = new SculptureDecoySystem();
   private readonly vomitSystem = new VomitSystem();
   private readonly graduateTrackingSystem = new GraduateTrackingSystem();
@@ -102,6 +105,10 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   });
 
   async onCreate(options: RoomOptions): Promise<void> {
+    const map = getGameMap(options.mapId ?? DEFAULT_MAP_ID);
+    const errors = validateGameMap(map); if (errors.length) throw new Error(errors.join('; '));
+    this.state.mapId = map.id; this.fossilHideSystem = new FossilHideSystem(map.hideSpots);
+    this.matchTimerGateSystem.initializeGates(this.state);
     this.roomId = await this.generateRoomCode();
     this.state.roomCode = this.roomId;
     this.state.isPrivate = options.visibility === ROOM_VISIBILITY.private;
@@ -131,7 +138,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
   onJoin(client: Client, options: RoomOptions): void {
     const player = new PlayerState();
-    const spawn = PLAYER_SPAWNS[this.state.players.size % PLAYER_SPAWNS.length] ?? PLAYER_SPAWNS[0];
+    const map = getGameMap(this.state.mapId);
+    const spawn = map.spawns.find(p => [...this.state.players.values()].every(other => other.escaped || Math.abs(p.x - other.x) >= PLAYER_BODY_SIZE || Math.abs(p.y - other.y) >= PLAYER_BODY_SIZE)) ?? map.spawns[this.state.players.size % map.spawns.length]!;
 
     player.nickname = normalizeNickname(options.nickname) ?? `생존자${this.state.players.size + 1}`;
     player.connected = true;
@@ -139,9 +147,12 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     if (this.state.phase === GAME_PHASE.playing) {
       player.characterId = CHARACTER_IDS.normalHuman;
     }
-    player.x = tileToWorld(spawn.tileX);
-    player.y = tileToWorld(spawn.tileY);
+    player.x = spawn.x; player.y = spawn.y;
     this.state.players.set(client.sessionId, player);
+    if (this.state.phase === GAME_PHASE.playing) {
+      const result = new RoundResultState(); result.nickname = player.nickname; result.startedAsHuman = true;
+      this.state.roundResults.set(client.sessionId, result);
+    }
     this.addPlayerToClientViews(client, player);
     this.updateHost();
     this.computerRewindSystem.record(this.state, client.sessionId, Date.now());
@@ -171,6 +182,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   onLeave(client: Client): void {
+    const leaving = this.state.players.get(client.sessionId), leavingResult = this.state.roundResults.get(client.sessionId);
+    if (leaving?.role === PLAYER_ROLE.human && !leaving.escaped && leavingResult && !leavingResult.result) leavingResult.result = 'FAILED_TO_ESCAPE';
+    this.matchTimerGateSystem.cancel(client.sessionId, leaving);
     this.assignmentSubscribers.delete(client.sessionId);
     this.engineeringTrapSystem.removeOwner(this.state, client.sessionId);
     this.computerRewindSystem.remove(client.sessionId);
@@ -188,14 +202,14 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.players.delete(client.sessionId);
     this.updateHost();
 
-    if (this.state.players.size < 2) {
+    if (this.state.players.size === 0 || (this.state.phase === GAME_PHASE.waiting && this.state.players.size < 2)) {
       this.resetToWaiting();
       return;
     }
 
     if (
       this.state.phase === GAME_PHASE.playing &&
-      !Array.from(this.state.players.values()).some(
+      this.state.escapedCount === 0 && !Array.from(this.state.players.values()).some(
         (player) => player.role === PLAYER_ROLE.zombie,
       )
     ) {
@@ -226,6 +240,18 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
   private simulate(context: StepContext): void {
     const now = Date.now();
+    this.matchTimerGateSystem.update(this.state, now);
+    if (this.state.phase === GAME_PHASE.finished && !this.finishedCleanupDone) {
+      this.finishedCleanupDone = true;
+      this.sculptureDecoySystem.clear(this.state);
+      this.vomitSystem.clear(this.state);
+      this.graduateTrackingSystem.clear();
+      this.libraryBarrierSystem.clear(this.state);
+      this.lateDashSystem.clear(this.state);
+      this.engineeringTrapSystem.clear(this.state);
+      this.computerRewindSystem.clear(this.state);
+      this.professorAssignmentSystem.clear(this.state, this.sendAssignment);
+    }
     this.professorAssignmentSystem.update(this.state, now, this.sendAssignment);
     this.libraryBarrierSystem.update(this.state, now);
     this.engineeringTrapSystem.update(this.state, now);
@@ -248,7 +274,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.setPlayerVisibleToOthers(sessionId, player, true);
       }
 
-      if (this.state.phase === GAME_PHASE.finished) {
+      if (this.state.phase === GAME_PHASE.finished || player.escaped) {
         return;
       }
 
@@ -272,7 +298,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       this.sculptureDecoySystem.recordMovement(sessionId, player, input, now);
       if (now < player.assignmentLockEndsAt) return;
 
-      if (interactionPressed && this.fossilHideSystem.interact(player, now) === "entered") {
+      if (interactionPressed && !this.matchTimerGateSystem.nearbyOpenGate(this.state, player) && this.fossilHideSystem.interact(player, now) === "entered") {
         this.setPlayerVisibleToOthers(sessionId, player, false);
         this.sendHideSpotsToEligibleClients();
         return;
@@ -312,9 +338,13 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         movementInput,
         now < player.rootedUntil || player.trapCastEndsAt > now ? 0 : PLAYER_SPEED * getPlayerSpeedMultiplier(player) * getPuddleSpeedMultiplier(this.state, player, now),
         context.dt,
-        player.role, this.state.bookBarriers.values(), now,
+        player.role, this.state.bookBarriers.values(), now, getGameMap(this.state.mapId),
       );
       this.engineeringTrapSystem.checkPlayer(this.state, player, now, dashMoved ? player : movementStart);
+      if (this.matchTimerGateSystem.interact(this.state, sessionId, input.interact, now)) {
+        this.fossilHideSystem.exit(player); this.sculptureDecoySystem.removeOwner(this.state, sessionId);
+        this.engineeringTrapSystem.removeOwner(this.state, sessionId); this.setPlayerVisibleToOthers(sessionId, player, false); this.humanDangerSystem.invalidate();
+      }
 
       if (interactionPressed && player.role === PLAYER_ROLE.zombie) {
         const target = resolveZombieAttack(this.state, sessionId, now);
@@ -351,6 +381,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.engineeringTrapSystem.update(this.state, now);
     this.clients.forEach(client => this.syncTrapView(client));
     this.professorAssignmentSystem.update(this.state, now, this.sendAssignment);
+    this.matchTimerGateSystem.update(this.state, now);
     this.humanDangerSystem.update(this.state, now, (id, update) => {
       if (this.dangerSubscribers.has(id)) this.clients.find(client => client.sessionId === id)?.send(DANGER_MESSAGES.update, update);
     });
@@ -387,7 +418,10 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.engineeringTrapSystem.clear(this.state);
     this.computerRewindSystem.clear(this.state);
     this.professorAssignmentSystem.clear(this.state, this.sendAssignment);
+    let spawnIndex = 0;
     this.state.players.forEach((candidate, candidateSessionId) => {
+      const spawn = getGameMap(this.state.mapId).spawns[spawnIndex++ % getGameMap(this.state.mapId).spawns.length]!;
+      candidate.x = spawn.x; candidate.y = spawn.y;
       resetSportsSprint(candidate);
       resetPhilosophyState(candidate);
       resetXmanDisguise(candidate);
@@ -405,12 +439,18 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = sessionId;
     this.state.winner = MATCH_WINNER.none;
     this.state.phase = GAME_PHASE.playing;
-    this.state.matchStartedAt = Date.now();
+    this.finishedCleanupDone = false;
+    this.matchTimerGateSystem.start(this.state, Date.now());
+    this.state.roundResults.clear();
+    this.state.players.forEach((p, id) => {
+      const result = new RoundResultState(); result.nickname = p.nickname; result.startedAsHuman = p.role === PLAYER_ROLE.human; this.state.roundResults.set(id, result);
+    });
     this.state.matchParticipantCount = participants.length;
     this.state.players.forEach((_candidate, id) => this.computerRewindSystem.record(this.state, id, Date.now()));
   }
 
   private resetToWaiting(): void {
+    this.matchTimerGateSystem.reset(this.state); this.matchTimerGateSystem.initializeGates(this.state); this.state.roundResults.clear();
     this.state.phase = GAME_PHASE.waiting;
     this.state.winner = MATCH_WINNER.none;
     this.state.initialZombieSessionId = "";
@@ -469,7 +509,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     client.view?.dispose();
     client.view = new StateView();
     this.state.players.forEach((player, sessionId) => {
-      if (player.activity !== PLAYER_ACTIVITY.hidden || sessionId === client.sessionId) {
+      if ((!player.escaped && player.activity !== PLAYER_ACTIVITY.hidden) || sessionId === client.sessionId) {
         client.view?.add(player);
       }
     });
@@ -481,7 +521,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     if (!viewer || !client.view) return;
     const next = new Set<EngineeringTrapState>();
     this.state.engineeringTraps.forEach(trap => {
-      if (canSeeEngineeringTrap(viewer, trap)) { client.view?.add(trap); next.add(trap); }
+      if (canSeeEngineeringTrap(viewer, trap, getGameMap(this.state.mapId).tileSize)) { client.view?.add(trap); next.add(trap); }
     });
     for (const trap of this.visibleTraps.get(client.sessionId) ?? []) {
       if (!next.has(trap)) client.view.remove(trap);

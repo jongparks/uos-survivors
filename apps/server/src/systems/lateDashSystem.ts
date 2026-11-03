@@ -1,7 +1,7 @@
 import {
+  getGameMap, getMapTile,
   CHARACTER_IDS, GAME_PHASE, LATE_ZOMBIE_CONFIG as C, PLAYER_ACTIVITY, PLAYER_ROLE,
-  PLAYER_BODY_SIZE, TILE_SIZE, TEST_MAP_WIDTH, TEST_MAP_HEIGHT, TILE_INDEX, getTestMapTile,
-  type GameState, type PlayerState,
+  PLAYER_BODY_SIZE, TILE_INDEX, type GameState, type PlayerState,
 } from "@uos-survivors/shared";
 
 // Continuous swept-body test: ray versus target box expanded by the moving body.
@@ -47,13 +47,16 @@ export class LateDashSystem {
     if (traveled === undefined) return false;
     if (!p || !p.connected || state.phase !== GAME_PHASE.playing || p.role !== PLAYER_ROLE.zombie ||
       p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.rootedUntil) { this.cancel(id, p); return true; }
+
+    const map = getGameMap(state.mapId), TILE_SIZE = map.tileSize;
+    const TEST_MAP_WIDTH = Math.ceil(map.worldWidth / TILE_SIZE), TEST_MAP_HEIGHT = Math.ceil(map.worldHeight / TILE_SIZE);
     const total = TILE_SIZE * C.dashDistanceTiles;
     const step = Math.max(0, Math.min(total, total * (now - p.dashStartedAt) / C.dashDurationMs) - traveled);
     let distance = Infinity, kind = "wall", targetId = "";
     const half = PLAYER_BODY_SIZE / 2;
     const test = (x: number, y: number, w: number, h: number) => entry(p.x, p.y, p.dashDirectionX, p.dashDirectionY, x, y, w / 2 + half, h / 2 + half);
     for (let y = -1; y <= TEST_MAP_HEIGHT; y++) for (let x = -1; x <= TEST_MAP_WIDTH; x++) {
-      if (getTestMapTile(x, y) === TILE_INDEX.floor) continue;
+      if (getMapTile(map, x, y) === TILE_INDEX.floor) continue;
       distance = Math.min(distance, test((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, TILE_SIZE, TILE_SIZE));
     }
     for (const [key, decoy] of [...state.decoys.entries()].sort(([a], [b]) => a.localeCompare(b))) {
@@ -61,7 +64,7 @@ export class LateDashSystem {
       if (d < distance) { distance = d; kind = "decoy"; targetId = key; }
     }
     for (const [key, human] of [...state.players.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-      if (human.role !== PLAYER_ROLE.human || !human.connected || human.activity === PLAYER_ACTIVITY.hidden) continue;
+      if (human.role !== PLAYER_ROLE.human || human.escaped || !human.connected || human.activity === PLAYER_ACTIVITY.hidden) continue;
       const d = test(human.x, human.y, PLAYER_BODY_SIZE, PLAYER_BODY_SIZE);
       if (d < distance) { distance = d; kind = "human"; targetId = key; }
     }

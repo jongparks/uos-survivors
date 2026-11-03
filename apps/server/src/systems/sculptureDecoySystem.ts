@@ -1,5 +1,5 @@
 import {
-  CHARACTER_IDS,
+  getGameMap, CHARACTER_IDS,
   GAME_PHASE,
   PLAYER_ACTIVITY,
   PLAYER_ROLE,
@@ -38,7 +38,7 @@ export class SculptureDecoySystem {
   ): void {
     if (
       player.characterId !== CHARACTER_IDS.sculptureStudent ||
-      player.role !== PLAYER_ROLE.human ||
+      player.role !== PLAYER_ROLE.human || player.escaped ||
       player.activity !== PLAYER_ACTIVITY.normal
     ) {
       this.movementHistory.delete(sessionId);
@@ -60,7 +60,7 @@ export class SculptureDecoySystem {
       state.phase !== GAME_PHASE.playing ||
       !player?.connected ||
       player.characterId !== CHARACTER_IDS.sculptureStudent ||
-      player.role !== PLAYER_ROLE.human ||
+      player.role !== PLAYER_ROLE.human || player.escaped ||
       player.activity !== PLAYER_ACTIVITY.normal ||
       now < player.assignmentLockEndsAt ||
       player.activeDecoyId !== "" ||
@@ -121,7 +121,7 @@ export class SculptureDecoySystem {
         current,
         PLAYER_SPEED * SCULPTURE_STUDENT_CONFIG.decoySpeedMultiplier,
         deltaSeconds,
-        PLAYER_ROLE.human, state.bookBarriers.values(), now,
+        PLAYER_ROLE.human, state.bookBarriers.values(), now, getGameMap(state.mapId),
       );
     }
   }
