@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="620" viewBox="-6 0 412 620">
+<title>ZOMBIE_004 지각생</title>
+<g stroke="#F08A3C" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.85">
+<path d="M30 250 L96 250 M18 300 L92 300 M40 350 L100 350 M24 400 L86 400"/>
+</g>
+<g transform="rotate(8 200 560)" stroke="#1A1E1C" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M126 214 L168 196 L178 238 L136 252 Z" fill="#2F3D63"/>
+<path d="M136 214 L164 202" stroke="#E6E0CF" stroke-width="2.5"/>
+<path d="M150 372 L190 372 L184 544 L152 544 Z" fill="#7C8799"/>
+<path d="M210 372 L250 372 L264 440 L250 500 L222 500 L230 446 Z" fill="#727D8F"/>
+<path d="M156 410 L186 410 M154 450 L184 450 M153 490 L184 490 M168 376 L166 544" stroke="#5E6878" stroke-width="2"/>
+<path d="M214 410 L254 410 M226 470 L254 470 M232 376 L246 440" stroke="#5E6878" stroke-width="2"/>
+<path d="M146 538 L184 538 Q198 542 198 556 L198 562 L132 562 Q130 546 146 538 Z" fill="#E6E2D6"/>
+<path d="M132 562 L198 562 L198 570 L132 570 Z" fill="#BDB7A7"/>
+<path d="M220 494 L252 494 Q266 498 266 512 L266 518 L212 518 Q210 504 220 494 Z" fill="#E6E2D6"/>
+<path d="M212 518 L266 518 L266 525 L212 525 Z" fill="#BDB7A7"/>
+<path d="M238 498 Q226 520 214 532 M242 498 Q252 522 262 530" fill="none" stroke="#E6E2D6" stroke-width="2.5"/>
+<path d="M154 222 Q150 190 176 184 Q190 196 200 194 Q244 196 248 222 Z" fill="#7E342D"/>
+<path d="M140 232 Q148 212 200 210 Q252 212 262 232 L272 384 Q200 396 130 384 Z" fill="#A0463E"/>
+<path d="M164 330 L236 330 L246 372 L154 372 Z" fill="#8E3D36"/>
+<text x="200" y="272" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="15" letter-spacing="1.5" fill="#F1EEE4" stroke="none">UOS</text>
+<path d="M192 222 L190 262 M208 222 L212 256" fill="none" stroke="#F1EEE4" stroke-width="2.5"/>
+<path d="M146 234 Q116 250 104 300 L84 336 L106 350 L130 312 L152 280 Z" fill="#A0463E"/>
+<path d="M84 336 L106 350 L102 358 L80 344 Z" fill="#7E342D"/>
+<ellipse cx="88" cy="356" rx="13" ry="11" fill="#9DB39A"/>
+<path d="M252 236 Q290 238 310 266 L296 288 Q276 268 258 268 Z" fill="#A0463E"/>
+<path d="M308 262 L298 288 L290 284 L300 258 Z" fill="#7E342D"/>
+<rect x="300" y="244" width="24" height="38" rx="5" fill="#1F2421" transform="rotate(14 312 263)"/>
+<rect x="304" y="249" width="16" height="28" rx="2" fill="#FCE3D2" stroke="none" transform="rotate(14 312 263)"/>
+<text x="312" y="267" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="7" fill="#D9483B" stroke="none" transform="rotate(14 312 263)">09:01</text>
+<ellipse cx="306" cy="282" rx="12" ry="10" fill="#9DB39A"/>
+<path d="M186 190 L214 190 L216 216 Q200 222 184 216 Z" fill="#9DB39A"/>
+<g transform="rotate(6 200 150)">
+<path d="M158 140 Q148 140 150 152 Q154 162 162 160 Z" fill="#9DB39A"/>
+<path d="M242 138 Q252 138 250 150 Q246 160 238 158 Z" fill="#9DB39A"/>
+<path d="M160 120 Q158 84 200 82 Q242 84 242 124 L238 164 Q232 196 200 198 Q168 196 162 164 Z" fill="#9DB39A"/>
+<path d="M156 126 L138 92 L164 104 L160 66 L184 92 L194 52 L208 88 L230 56 L230 94 L258 78 L244 110 L266 112 L246 124 Q236 104 200 100 Q166 104 156 126 Z" fill="#2A2522"/>
+<ellipse cx="182" cy="140" rx="14" ry="12" fill="#6C886F" stroke="none"/>
+<ellipse cx="220" cy="138" rx="14" ry="12" fill="#6C886F" stroke="none"/>
+<circle cx="182" cy="140" r="9" fill="#EDE7B5" stroke-width="2"/>
+<circle cx="220" cy="138" r="9" fill="#EDE7B5" stroke-width="2"/>
+<circle cx="185" cy="140" r="2" fill="#1A1E1C" stroke="none"/>
+<circle cx="223" cy="138" r="2" fill="#1A1E1C" stroke="none"/>
+<path d="M168 124 L194 130 M208 128 L234 120" fill="none" stroke-width="3"/>
+<path d="M200 150 L197 160 L203 161" fill="none" stroke-width="2.5"/>
+<rect x="182" y="166" width="38" height="30" rx="6" fill="#B9813F" transform="rotate(-6 201 181)"/>
+<rect x="187" y="171" width="28" height="20" rx="3" fill="#E8C48A" stroke="none" transform="rotate(-6 201 181)"/>
+<path d="M214 168 Q220 176 216 186" fill="none" stroke="#1A1E1C" stroke-width="2"/>
+<path d="M246 116 Q252 122 248 128 Q242 124 246 116 Z" fill="#BFE3EA" stroke-width="2"/>
+</g>
+<path d="M130 560 Q118 548 128 540 Q138 532 146 544 M258 524 Q272 516 280 526" fill="#E6E2D6" stroke="#BDB7A7" stroke-width="2.5" opacity="0.7"/>
+</g>
+</svg>

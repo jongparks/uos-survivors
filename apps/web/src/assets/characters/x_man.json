@@ -1,0 +1,75 @@
+{
+  "id": "ZOMBIE_005",
+  "key": "x_man",
+  "name_ko": "엑스맨",
+  "name_en": "X-Man (Infiltrator)",
+  "role": "위장·기습 (disguise / ambush)",
+  "university": "University of Seoul (서울시립대학교)",
+  "skill": {
+    "name_ko": "새터 잠입",
+    "name_en": "Orientation Infiltration",
+    "desc_ko": "평소엔 생존자(학생 NPC)처럼 보이며 공격 대상에서 제외. 플레이어가 가까이 오면 정체를 드러내며 기습, 이후 보라색 그림자가 따라붙음."
+  },
+  "lore_ko": "서울시립대 새내기 새로배움터에 섞여 든 감염자. 화장으로 피부를 가리고 새터 티셔츠·이름표까지 챙겼지만, 목과 볼의 갈라진 틈과 등 뒤 손은 숨기지 못했다.",
+  "art": {
+    "style": "flat color vector, bold dark outline (3.5px at 400px width), no gradients, not pixel art",
+    "view": "front, standing friendly with closed smile, orientation guidebook in left hand, right hand hidden behind back with claws peeking out by the hip",
+    "source_vector": "x_man.svg",
+    "canvas_px": {
+      "width": 412,
+      "height": 620
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92,
+      "note": "normalized, origin top-left; at the feet"
+    },
+    "facing": "right; flip horizontally for left",
+    "sprites": {
+      "hires": "x_man_hires.png",
+      "256": "x_man_256px.png",
+      "128": "x_man_128px.png",
+      "64": "x_man_64px.png",
+      "32": "x_man_32px.png"
+    },
+    "background": "transparent (RGBA PNG)",
+    "recommended_filtering": "linear/bilinear",
+    "vfx_note": "the purple shadow silhouette is baked in; for disguise state, remove the first <g fill=#4B3A6E> group and the claw glow to get a 'human' sprite"
+  },
+  "palette": {
+    "makeup_skin": "#E2BC9A",
+    "true_skin": "#9DB39A",
+    "tee": "#F1EEE4",
+    "group_purple": "#7C5CD6",
+    "shadow": "#4B3A6E",
+    "glow": "#A78BFA",
+    "hat": "#D9CFB8",
+    "guidebook": "#F2D56B",
+    "jeans": "#6C82A6",
+    "outline": "#1A1E1C"
+  },
+  "identifying_features": [
+    "white '새터 7조' orientation T-shirt with small 'UOS'",
+    "'새내기' name tag sticker, neon wristband",
+    "peach makeup skin with cracked cheek revealing green; neck left green",
+    "one purple slit pupil",
+    "bucket hat with purple band",
+    "claws peeking from behind right hip with purple glow",
+    "large purple zombie shadow (arms raised) behind the body"
+  ],
+  "gameplay": {
+    "hp": "[TBD]",
+    "speed": "[TBD]",
+    "damage": "[TBD]",
+    "skill_cooldown": "[TBD]",
+    "skill_range": "[TBD]",
+    "hitbox_note": "suggested body hitbox x 0.30-0.70, y 0.12-0.92 of sprite"
+  },
+  "todo_animations": [
+    "walk",
+    "attack",
+    "skill_cast",
+    "hit",
+    "death"
+  ]
+}

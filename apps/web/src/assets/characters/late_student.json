@@ -1,0 +1,74 @@
+{
+  "id": "ZOMBIE_004",
+  "key": "late_student",
+  "name_ko": "지각생",
+  "name_en": "Late Student",
+  "role": "돌진 감염 (charge infection)",
+  "university": "University of Seoul (서울시립대학교)",
+  "skill": {
+    "name_ko": "출석 마감",
+    "name_en": "Attendance Closed",
+    "desc_ko": "휴대폰 시계가 09:01이 되는 순간 한 방향으로 직선 돌진. 부딪힌 플레이어는 넉백 + 감염. 돌진 후 짧은 경직(숨 고르기)."
+  },
+  "lore_ko": "1교시 출석 체크 1분 전에 눈을 뜬 서울시립대 학생. 잠옷 바지 그대로 토스트를 물고, 감염된 뒤에도 강의실로 전력 질주한다.",
+  "art": {
+    "style": "flat color vector, bold dark outline (3.5px at 400px width), no gradients, not pixel art",
+    "view": "front, sprinting and leaning forward (rotated ~8deg), right knee raised, phone held forward, orange speed lines on the left",
+    "source_vector": "late_student.svg",
+    "canvas_px": {
+      "width": 412,
+      "height": 620
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92,
+      "note": "normalized, origin top-left; at the feet"
+    },
+    "facing": "right; flip horizontally for left",
+    "sprites": {
+      "hires": "late_student_hires.png",
+      "256": "late_student_256px.png",
+      "128": "late_student_128px.png",
+      "64": "late_student_64px.png",
+      "32": "late_student_32px.png"
+    },
+    "background": "transparent (RGBA PNG)",
+    "recommended_filtering": "linear/bilinear",
+    "vfx_note": "orange speed lines (x 18-100) are baked into the sprite; remove them from the SVG for a separate VFX layer"
+  },
+  "palette": {
+    "skin": "#9DB39A",
+    "hoodie": "#A0463E",
+    "hoodie_shadow": "#7E342D",
+    "pajama": "#7C8799",
+    "toast": "#E8C48A",
+    "toast_crust": "#B9813F",
+    "clock_red": "#D9483B",
+    "speed_orange": "#F08A3C",
+    "backpack": "#2F3D63",
+    "outline": "#1A1E1C"
+  },
+  "identifying_features": [
+    "toast held in mouth",
+    "phone showing red '09:01' (charge telegraph)",
+    "wild bed hair, wide frantic eyes, sweat drop",
+    "dusty-red 'UOS' hoodie + grey plaid pajama pants",
+    "backpack bouncing up behind shoulder",
+    "untied laces, dust puffs at feet"
+  ],
+  "gameplay": {
+    "hp": "[TBD]",
+    "speed": "[TBD]",
+    "damage": "[TBD]",
+    "skill_cooldown": "[TBD]",
+    "skill_range": "[TBD]",
+    "hitbox_note": "suggested body hitbox x 0.30-0.72, y 0.12-0.92 of sprite"
+  },
+  "todo_animations": [
+    "walk",
+    "attack",
+    "skill_cast",
+    "hit",
+    "death"
+  ]
+}

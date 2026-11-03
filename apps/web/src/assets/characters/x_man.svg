@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="620" viewBox="-6 0 412 620">
+<title>ZOMBIE_005 엑스맨</title>
+<g fill="#4B3A6E" opacity="0.55">
+<circle cx="214" cy="136" r="54"/>
+<path d="M150 220 L280 220 L292 404 L138 404 Z"/>
+<path d="M152 232 L96 162 L82 136 L108 148 L122 166 L170 252 Z"/>
+<path d="M278 232 L334 162 L348 136 L322 148 L308 166 L260 252 Z"/>
+</g>
+<g stroke="#1A1E1C" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M150 372 L190 372 L184 544 L152 544 Z" fill="#6C82A6"/>
+<path d="M210 372 L250 372 L256 544 L224 544 Z" fill="#627798"/>
+<path d="M146 538 L184 538 Q198 542 198 556 L198 562 L132 562 Q130 546 146 538 Z" fill="#F4F1EA"/>
+<path d="M132 562 L198 562 L198 570 L132 570 Z" fill="#CFC9BA"/>
+<path d="M220 538 L256 538 Q270 542 270 556 L270 562 L206 562 Q204 546 220 538 Z" fill="#F4F1EA"/>
+<path d="M206 562 L270 562 L270 570 L206 570 Z" fill="#CFC9BA"/>
+<circle cx="276" cy="372" r="24" fill="#A78BFA" stroke="none" opacity="0.4"/>
+<path d="M262 356 Q284 350 292 366 L300 386 M262 364 Q282 362 290 376 L296 396 M262 372 Q276 374 282 388 L284 402" fill="none" stroke="#1A1E1C" stroke-width="8"/>
+<path d="M262 356 Q284 350 292 366 L300 386 M262 364 Q282 362 290 376 L296 396 M262 372 Q276 374 282 388 L284 402" fill="none" stroke="#9DB39A" stroke-width="4"/>
+<path d="M298 382 L303 392 M294 392 L298 402 M282 398 L285 408" stroke="#3A2A4E" stroke-width="3"/>
+<path d="M140 232 Q148 212 200 210 Q252 212 262 232 L268 384 Q200 394 134 384 Z" fill="#F1EEE4"/>
+<text x="178" y="262" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="9" letter-spacing="1.5" fill="#6C82A6" stroke="none">UOS</text>
+<text x="200" y="318" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="17" fill="#7C5CD6" stroke="none">새터 7조</text>
+<rect x="206" y="244" width="44" height="30" rx="2" fill="#FFFFFF" stroke-width="2.5"/>
+<rect x="206" y="244" width="44" height="9" fill="#D9483B" stroke-width="2.5"/>
+<text x="228" y="268" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="700" font-size="9" fill="#1A1E1C" stroke="none">새내기</text>
+<path d="M146 232 Q124 240 120 280 L146 286 L152 262 Z" fill="#F1EEE4"/>
+<path d="M122 282 L146 286 L174 328 L156 342 Z" fill="#E2BC9A"/>
+<path d="M150 312 L158 306 L164 314" fill="none" stroke="#5E7A62" stroke-width="2"/>
+<rect x="148" y="314" width="14" height="10" rx="2" fill="#9BE36B" stroke-width="2.5" transform="rotate(-40 155 319)"/>
+<g transform="rotate(-12 186 352)">
+<rect x="164" y="324" width="44" height="56" rx="3" fill="#F2D56B"/>
+<text x="186" y="348" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="10" fill="#1A1E1C" stroke="none">새터</text>
+<text x="186" y="362" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="700" font-size="8" fill="#1A1E1C" stroke="none">가이드북</text>
+</g>
+<ellipse cx="170" cy="340" rx="12" ry="10" fill="#E2BC9A"/>
+<path d="M254 232 Q278 242 280 280 L256 286 Z" fill="#F1EEE4"/>
+<path d="M256 286 L280 280 L282 330 L262 336 Z" fill="#E2BC9A"/>
+<path d="M186 190 L214 190 L216 216 Q200 222 184 216 Z" fill="#9DB39A"/>
+<path d="M188 198 Q200 202 212 198" fill="none" stroke="#5E7A62" stroke-width="1.8"/>
+<path d="M158 140 Q148 140 150 152 Q154 162 162 160 Z" fill="#E2BC9A"/>
+<path d="M242 138 Q252 138 250 150 Q246 160 238 158 Z" fill="#E2BC9A"/>
+<path d="M160 120 Q158 84 200 82 Q242 84 242 124 L238 164 Q232 196 200 198 Q168 196 162 164 Z" fill="#E2BC9A"/>
+<path d="M166 146 L178 142 L188 152 L184 168 L170 168 Z" fill="#9DB39A" stroke-width="2.5"/>
+<path d="M178 142 L176 132 M188 152 L196 150 M184 168 L190 176 M170 168 L166 176" fill="none" stroke-width="2"/>
+<ellipse cx="226" cy="164" rx="8" ry="5" fill="#F0A0A8" stroke="none" opacity="0.6"/>
+<circle cx="182" cy="134" r="7" fill="#F4F1EA" stroke-width="2"/>
+<circle cx="182" cy="135" r="3" fill="#3A2A22" stroke="none"/>
+<circle cx="220" cy="132" r="7" fill="#F4F1EA" stroke-width="2"/>
+<ellipse cx="220" cy="133" rx="2" ry="5" fill="#7C5CD6" stroke="none"/>
+<path d="M172 124 Q182 120 192 124 M210 122 Q220 118 230 122" fill="none" stroke-width="2.5"/>
+<path d="M200 144 L198 154 L203 155" fill="none" stroke-width="2.5"/>
+<path d="M178 168 Q200 186 222 168" fill="none" stroke-width="3"/>
+<path d="M214 175 L216 182 L219 173" fill="#F4F1EA" stroke-width="1.8"/>
+<path d="M160 112 Q160 74 200 72 Q240 74 240 112 Z" fill="#D9CFB8"/>
+<path d="M140 120 Q200 96 260 120 L266 130 Q200 110 134 130 Z" fill="#C9BEA4"/>
+<path d="M162 110 Q200 100 238 110" fill="none" stroke="#7C5CD6" stroke-width="4"/>
+<path d="M164 130 L170 122 L176 132 M224 130 L230 122 L236 130" fill="#2A2522" stroke-width="2"/>
+</g>
+</svg>

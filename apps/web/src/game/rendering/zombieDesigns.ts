@@ -6,6 +6,10 @@ import gradMetadata from "../../assets/characters/grad_student.json";
 import gradUrl from "../../assets/characters/grad_student.svg?url";
 import libraryMetadata from "../../assets/characters/library_npc.json";
 import libraryUrl from "../../assets/characters/library_npc.svg?url";
+import lateMetadata from "../../assets/characters/late_student.json";
+import lateUrl from "../../assets/characters/late_student.svg?url";
+import xmanMetadata from "../../assets/characters/x_man.json";
+import xmanUrl from "../../assets/characters/x_man.svg?url";
 
 export interface ZombieDesign {
   textureKey: string; sourceUrl: string; originX: number; originY: number;
@@ -27,4 +31,6 @@ export const ZOMBIE_DESIGNS: Readonly<Partial<Record<string, ZombieDesign>>> = {
   [CHARACTER_IDS.drunkenZombie]: design("drunken-zombie-design", drunkUrl, drunkMetadata),
   [CHARACTER_IDS.graduateZombie]: design("graduate-zombie-design", gradUrl, gradMetadata),
   [CHARACTER_IDS.libraryNpc]: design("library-zombie-design", libraryUrl, libraryMetadata),
+  [CHARACTER_IDS.lateZombie]: design("late-zombie-design", lateUrl, lateMetadata),
+  [CHARACTER_IDS.xmanZombie]: design("xman-zombie-design", xmanUrl, xmanMetadata),
 };
