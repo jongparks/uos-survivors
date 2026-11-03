@@ -17,6 +17,7 @@ import {
   ROOM_NAMES,
   ROOM_VISIBILITY,
   CHARACTER_IDS,
+  DANGER_MESSAGES,
   SPECIAL_ZOMBIE_CHARACTER_IDS,
   GRADUATE_TRACKING_MESSAGE,
   LIBRARY_PLACEMENT_FAILED_MESSAGE,
@@ -214,6 +215,13 @@ try {
   const acknowledgedInputs = hostInput.lastProcessed;
 
   const privateInput = privateHostRoom.input({ type: MovementInput, mode: "reliable" });
+  const dangerUpdates = [];
+  let zombieDangerUpdates = 0;
+  invitedPrivateGuest.onMessage(DANGER_MESSAGES.update, update => { dangerUpdates.push(update); });
+  privateHostRoom.onMessage(DANGER_MESSAGES.update, () => { zombieDangerUpdates++; });
+  invitedPrivateGuest.send(DANGER_MESSAGES.subscribe);
+  privateHostRoom.send(DANGER_MESSAGES.subscribe);
+  await waitUntil(() => dangerUpdates.some(update => update.level === "WARNING"), "Human did not receive danger warning at two tiles");
   for (let tick = 0; tick < 5; tick += 1) {
     privateInput.data.moveX = 1;
     privateInput.data.moveY = 0;
@@ -222,6 +230,10 @@ try {
     await delay(35);
   }
 
+  await waitUntil(() => dangerUpdates.some(update => update.level === "DANGER"), "Human danger did not increase when the zombie approached");
+  if (zombieDangerUpdates !== 0 || dangerUpdates.some(update => Object.keys(update).join(",") !== "level")) {
+    throw new Error("Danger update was sent to a zombie or exposed identifying details");
+  }
   const infectionStartedAt = Date.now();
   let tracking;
   let guestTrackingPackets = 0;

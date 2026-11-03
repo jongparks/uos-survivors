@@ -3,6 +3,7 @@ import Phaser from "phaser";
 
 import type { ConnectedGameRoom } from "../network/useGameRoom";
 import { MultiplayerScene } from "./scenes/MultiplayerScene";
+import { DangerVignette } from "./DangerVignette";
 
 interface GameCanvasProps {
   room: ConnectedGameRoom;
@@ -43,6 +44,6 @@ export function GameCanvas({ room }: GameCanvasProps) {
     };
   }, [room]);
 
-  return <div className="game-canvas" ref={containerRef} />;
+  return <div className="game-canvas" ref={containerRef}><DangerVignette room={room} /></div>;
 }
 

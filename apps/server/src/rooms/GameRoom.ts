@@ -4,6 +4,7 @@ import { StateView } from "@colyseus/schema";
 
 import {
   CHARACTER_IDS,
+  DANGER_MESSAGES,
   GRADUATE_TRACKING_MESSAGE,
   COMBAT_RULES,
   FOSSIL_MESSAGES,
@@ -40,6 +41,7 @@ import { VomitSystem } from "../systems/vomitSystem.js";
 import { GraduateTrackingSystem } from "../systems/graduateTrackingSystem.js";
 import { LibraryBarrierSystem } from "../systems/libraryBarrierSystem.js";
 import { LateDashSystem } from "../systems/lateDashSystem.js";
+import { HumanDangerSystem, calculateHumanDanger } from "../systems/humanDangerSystem.js";
 import { resetXmanDisguise, updateXmanDisguise, tryToggleXmanDisguise } from "../systems/xmanDisguiseSystem.js";
 import {
   getPlayerSpeedMultiplier,
@@ -66,6 +68,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly graduateTrackingSystem = new GraduateTrackingSystem();
   private readonly libraryBarrierSystem = new LibraryBarrierSystem();
   private readonly lateDashSystem = new LateDashSystem();
+  private readonly humanDangerSystem = new HumanDangerSystem();
+  private readonly dangerSubscribers = new Set<string>();
   private readonly interactionHeld = new Map<string, boolean>();
   private readonly skillHeld = new Map<string, boolean>();
   private readonly hideSpotSubscribers = new Set<string>();
@@ -84,6 +88,11 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.roomCode = this.roomId;
     this.state.isPrivate = options.visibility === ROOM_VISIBILITY.private;
     await this.setPrivate(this.state.isPrivate);
+    this.onMessage(DANGER_MESSAGES.subscribe, client => {
+      this.dangerSubscribers.add(client.sessionId);
+      const human = this.state.players.get(client.sessionId);
+      if (human?.role === PLAYER_ROLE.human) client.send(DANGER_MESSAGES.update, { level: calculateHumanDanger(this.state, human) });
+    });
     this.onMessage(FOSSIL_MESSAGES.requestHideSpots, (client) => {
       this.hideSpotSubscribers.add(client.sessionId);
       this.sendHideSpots(client);
@@ -119,6 +128,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   onReconnect(client: Client): void {
+    this.humanDangerSystem.forget(client.sessionId);
     const player = this.state.players.get(client.sessionId);
 
     if (player) {
@@ -129,6 +139,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   onLeave(client: Client): void {
+    this.dangerSubscribers.delete(client.sessionId);
+    this.humanDangerSystem.forget(client.sessionId);
     client.view?.dispose();
     this.interactionHeld.delete(client.sessionId);
     this.skillHeld.delete(client.sessionId);
@@ -285,6 +297,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.libraryBarrierSystem.update(this.state, now);
     if (this.state.phase === GAME_PHASE.finished) this.lateDashSystem.clear(this.state);
     if (this.state.phase === GAME_PHASE.finished) this.state.players.forEach(resetXmanDisguise);
+    this.humanDangerSystem.update(this.state, now, (id, update) => {
+      if (this.dangerSubscribers.has(id)) this.clients.find(client => client.sessionId === id)?.send(DANGER_MESSAGES.update, update);
+    });
   }
 
   private tryStartMatch(): void {
