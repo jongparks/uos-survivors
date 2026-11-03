@@ -236,6 +236,7 @@ try {
 
   if (
     !infectedPrivateGuest ||
+    infectedPrivateGuest.characterId !== CHARACTER_IDS.normalZombie ||
     infectedPrivateGuest.attackLockedUntil <
       infectionStartedAt + COMBAT_RULES.infectionAttackLockMs - 250 ||
     privateHostRoom.state.phase !== GAME_PHASE.finished ||
@@ -243,6 +244,20 @@ try {
   ) {
     throw new Error("Infection lock or all-infected victory state was invalid");
   }
+
+  // Verify Space is basic attack even for a special zombie, independent of Shift.
+  const attackHost = await new Client(endpoint).create(ROOM_NAMES.game, { nickname: "AttackHost", visibility: ROOM_VISIBILITY.private });
+  rooms.push(attackHost);
+  const attackGuest = await new Client(endpoint).joinById(attackHost.roomId, { nickname: "AttackGuest" });
+  rooms.push(attackGuest);
+  await waitUntil(() => attackHost.state.phase === GAME_PHASE.playing, "Attack test room did not start");
+  const attackInput = attackHost.input({ type: MovementInput, mode: "reliable" });
+  for (let tick = 0; tick < 5; tick++) {
+    attackInput.data.moveX = 1; attackInput.send(); await delay(35);
+  }
+  attackInput.data.moveX = 0; attackInput.data.interact = true; attackInput.send();
+  await waitUntil(() => attackHost.state.players.get(attackGuest.sessionId)?.characterId === CHARACTER_IDS.normalZombie, "Space basic attack did not convert the human into a normal zombie");
+  if (attackHost.state.players.get(attackHost.sessionId)?.vomitCooldownEndsAt !== 0) throw new Error("Space triggered the special skill");
 
   const publicSessionId = publicHostRoom.sessionId;
   let dropped = false;

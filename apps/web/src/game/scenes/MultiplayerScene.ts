@@ -20,7 +20,7 @@ import {
   TILE_INDEX,
   TILE_SIZE,
   applyMovementWithTestMapCollision,
-  getSportsSpeedMultiplier,
+  getCharacterSpeedMultiplier,
   getPuddleSpeedMultiplier,
   type FossilHideSpotView,
   type PlayerState,
@@ -107,7 +107,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.room.send(FOSSIL_MESSAGES.requestHideSpots);
 
     this.add
-      .text(20, 18, `ROOM ${this.room.roomId}  ·  ARROWS MOVE  ·  SHIFT ABILITY  ·  SPACE INTERACT`, {
+      .text(20, 18, `ROOM ${this.room.roomId}  ·  ARROWS MOVE  ·  SHIFT ABILITY  ·  SPACE INTERACT / ATTACK`, {
         color: "#bfffe1",
         fontFamily: "monospace",
         fontSize: "14px",
@@ -234,11 +234,7 @@ export class MultiplayerScene extends Phaser.Scene {
         smoothMs: NETWORK_RATE.correctionSmoothMs,
         snap: TILE_SIZE * 2,
         step: (context, state, command) => {
-          const speedMultiplier =
-            state.characterId === CHARACTER_IDS.sportsStudent &&
-            state.role === PLAYER_ROLE.human
-              ? getSportsSpeedMultiplier(state.sprintState)
-              : 1;
+          const speedMultiplier = getCharacterSpeedMultiplier(state.characterId, state.role, state.sprintState);
           applyMovementWithTestMapCollision(
             state,
             command,
@@ -326,7 +322,9 @@ export class MultiplayerScene extends Phaser.Scene {
             ? `ROLE · ZOMBIE · STUNNED ${stunSeconds.toFixed(1)}s`
             : attackLockSeconds > 0
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
-            : "ROLE · ZOMBIE · 만취생",
+            : player.characterId === CHARACTER_IDS.normalZombie
+              ? "ROLE · ZOMBIE · 일반 좀비 · [SPACE] 기본공격"
+              : "ROLE · ZOMBIE · 만취생 · [SPACE] 기본공격",
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }

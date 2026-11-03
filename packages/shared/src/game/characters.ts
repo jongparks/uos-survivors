@@ -5,6 +5,7 @@ export const CHARACTER_IDS = {
   sportsStudent: "HUMAN_002",
   sculptureStudent: "HUMAN_003",
   drunkenZombie: "ZOMBIE_001",
+  normalZombie: "ZOMBIE_000",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -23,6 +24,32 @@ export function pickRandomHumanCharacter(randomValue: number): CharacterId {
   const normalized = Math.min(0.999_999, Math.max(0, randomValue));
   const index = Math.floor(normalized * HUMAN_CHARACTER_IDS.length);
   return HUMAN_CHARACTER_IDS[index] ?? CHARACTER_IDS.fossil;
+}
+
+export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie] as const;
+
+export function pickInitialZombieCharacter(randomValue: number): CharacterId {
+  const index = Math.floor(Math.min(0.999_999, Math.max(0, randomValue)) * SPECIAL_ZOMBIE_CHARACTER_IDS.length);
+  return SPECIAL_ZOMBIE_CHARACTER_IDS[index] ?? CHARACTER_IDS.drunkenZombie;
+}
+
+export const NORMAL_ZOMBIE_CONFIG = {
+  characterId: CHARACTER_IDS.normalZombie,
+  characterName: "일반 좀비",
+  team: "ZOMBIE",
+  category: "NORMAL_ZOMBIE",
+  selectableAsInitialZombie: false,
+  spawnOnHumanInfection: true,
+  movementSpeedMultiplier: 1.08,
+  hasSpecialSkill: false,
+  skillId: null,
+  canUseBasicAttack: true,
+  canInfectHumans: true,
+} as const;
+
+export function getCharacterSpeedMultiplier(characterId: string, role: string, sprintState: string): number {
+  if (role === "zombie") return characterId === CHARACTER_IDS.normalZombie ? NORMAL_ZOMBIE_CONFIG.movementSpeedMultiplier : 1;
+  return characterId === CHARACTER_IDS.sportsStudent ? getSportsSpeedMultiplier(sprintState) : 1;
 }
 
 export const PLAYER_ACTIVITY = {

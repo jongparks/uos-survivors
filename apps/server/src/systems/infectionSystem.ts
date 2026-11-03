@@ -17,7 +17,10 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
   }
 
   player.role = PLAYER_ROLE.zombie;
-  player.characterId = CHARACTER_IDS.drunkenZombie;
+  state.decoys.forEach((decoy, id) => {
+    if (decoy.ownerSessionId === sessionId || id === player.activeDecoyId) state.decoys.delete(id);
+  });
+  player.characterId = CHARACTER_IDS.normalZombie;
   player.vomitCastEndsAt = 0;
   player.vomitCooldownEndsAt = 0;
   player.activity = PLAYER_ACTIVITY.normal;

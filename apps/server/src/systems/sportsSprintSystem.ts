@@ -4,7 +4,7 @@ import {
   PLAYER_ROLE,
   SPORTS_STUDENT_CONFIG,
   SPRINT_STATE,
-  getSportsSpeedMultiplier,
+  getCharacterSpeedMultiplier,
   type PlayerState,
 } from "@uos-survivors/shared";
 
@@ -60,8 +60,5 @@ export function tryActivateSportsSprint(player: PlayerState, now: number): boole
 }
 
 export function getPlayerSpeedMultiplier(player: PlayerState): number {
-  return player.characterId === CHARACTER_IDS.sportsStudent &&
-    player.role === PLAYER_ROLE.human
-    ? getSportsSpeedMultiplier(player.sprintState)
-    : 1;
+  return getCharacterSpeedMultiplier(player.characterId, player.role, player.sprintState);
 }

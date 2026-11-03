@@ -22,6 +22,7 @@ import {
   UNASSIGNED_CHARACTER_ID,
   applyMovementWithTestMapCollision,
   pickRandomHumanCharacter,
+  pickInitialZombieCharacter,
   tileToWorld,
   getPuddleSpeedMultiplier,
   type RoomVisibility,
@@ -146,7 +147,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.sculptureDecoySystem.resetPlayer(player);
         resetSportsSprint(player);
         player.role = PLAYER_ROLE.zombie;
-        player.characterId = CHARACTER_IDS.drunkenZombie;
+        player.characterId = pickInitialZombieCharacter(Math.random());
         player.attackLockedUntil = 0;
         player.nextAttackAt = 0;
         player.stunnedUntil = 0;
@@ -226,7 +227,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         context.dt,
       );
 
-      if (skillPressed && player.characterId !== CHARACTER_IDS.drunkenZombie) {
+      if (interactionPressed && player.role === PLAYER_ROLE.zombie) {
         const target = resolveZombieAttack(this.state, sessionId, now);
         if (target?.type === "decoy") {
           this.sculptureDecoySystem.hitDecoy(this.state, target.id, player, now);
@@ -278,7 +279,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         candidateSessionId === sessionId ? PLAYER_ROLE.zombie : PLAYER_ROLE.human;
       candidate.characterId =
         candidateSessionId === sessionId
-          ? CHARACTER_IDS.drunkenZombie
+          ? pickInitialZombieCharacter(Math.random())
           : pickRandomHumanCharacter(Math.random());
     });
     player.role = PLAYER_ROLE.zombie;
