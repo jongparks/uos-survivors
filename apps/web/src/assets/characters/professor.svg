@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="620" viewBox="-6 0 412 620">
+<title>ZOMBIE_006 교수 좀비</title>
+<g stroke="#D9483B" stroke-linecap="round">
+<path d="M346 256 L388 226" stroke-width="3" opacity="0.9"/>
+<circle cx="390" cy="225" r="12" fill="#D9483B" stroke="none" opacity="0.3"/>
+<circle cx="390" cy="225" r="5" fill="#FF6B5B" stroke="none"/>
+</g>
+<g stroke="#1A1E1C" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M150 372 L190 372 L186 540 L154 540 Z" fill="#5A5F66"/>
+<path d="M210 372 L250 372 L246 540 L214 540 Z" fill="#50555B"/>
+<path d="M150 536 L188 536 Q200 540 200 554 L200 562 L136 562 Q134 544 150 536 Z" fill="#5B3A2A"/>
+<path d="M136 562 L200 562 L200 569 L136 569 Z" fill="#3E2A1C"/>
+<path d="M212 536 L250 536 Q264 540 264 554 L264 562 L200 562 Q198 544 212 536 Z" fill="#5B3A2A"/>
+<path d="M200 562 L264 562 L264 569 L200 569 Z" fill="#3E2A1C"/>
+<path d="M150 230 L250 230 L254 386 Q200 394 146 386 Z" fill="#DDE4EA"/>
+<path d="M194 214 L206 214 L210 228 L204 236 L212 318 L200 332 L188 318 L196 236 L190 228 Z" fill="#7A2632"/>
+<path d="M136 234 Q148 214 190 212 L198 300 L194 394 Q160 400 132 390 Z" fill="#8A6E4E"/>
+<path d="M264 234 Q252 214 210 212 L202 300 L206 394 Q240 400 268 390 Z" fill="#8A6E4E"/>
+<path d="M190 212 L170 254 L196 292 Z M210 212 L230 254 L204 292 Z" fill="#6E553A"/>
+<g stroke="#6E553A" stroke-width="1.5" opacity="0.7"><path d="M146 300 L186 300 M144 330 L186 330 M142 360 L188 360 M214 300 L256 300 M214 330 L258 330 M212 360 L260 360"/></g>
+<rect x="216" y="270" width="28" height="6" rx="1" fill="#6E553A"/>
+<path d="M224 270 L224 256 M232 270 L232 258" stroke-width="4.5"/>
+<path d="M224 270 L224 258" stroke="#D9483B" stroke-width="2.5"/>
+<path d="M232 270 L232 260" stroke="#3E6E8E" stroke-width="2.5"/>
+<circle cx="200" cy="350" r="3" fill="#C9B07A" stroke-width="1.5"/>
+<circle cx="200" cy="372" r="3" fill="#C9B07A" stroke-width="1.5"/>
+<path d="M140 236 Q118 250 116 300 L124 330 L150 320 L144 296 Z" fill="#8A6E4E"/>
+<ellipse cx="128" cy="312" rx="9" ry="13" fill="#5E4630" stroke-width="2.5"/>
+<path d="M124 330 L150 320 L182 336 L172 356 Z" fill="#8A6E4E"/>
+<g transform="rotate(-8 186 330)">
+<rect x="160" y="300" width="56" height="70" rx="3" fill="#2F4A3E"/>
+<rect x="168" y="312" width="40" height="18" rx="2" fill="#F1EEE4" stroke-width="2"/>
+<text x="188" y="325" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="10" fill="#1A1E1C" stroke="none">출석부</text>
+<path d="M164 340 L212 340 M164 350 L212 350 M164 360 L212 360" stroke="#5E7A6A" stroke-width="2"/>
+</g>
+<ellipse cx="180" cy="350" rx="12" ry="10" fill="#93A894"/>
+<path d="M256 234 Q292 236 324 248 L318 274 Q288 266 258 270 Z" fill="#8A6E4E"/>
+<path d="M322 244 L330 270 L320 274 L312 250 Z" fill="#6E553A"/>
+<rect x="334" y="252" width="16" height="7" rx="2" fill="#2A2E33" stroke-width="2.5" transform="rotate(-32 342 255)"/>
+<ellipse cx="334" cy="262" rx="12" ry="10" fill="#93A894"/>
+<path d="M186 190 L214 190 L216 214 Q200 220 184 214 Z" fill="#93A894"/>
+<path d="M188 202 Q194 196 200 204 Q196 210 190 208 Z" fill="#7A2620" stroke-width="2"/>
+<path d="M182 212 L194 222 L190 214 M218 212 L206 222 L210 214" fill="#F4F6F8" stroke-width="2.5"/>
+<path d="M158 140 Q148 140 150 152 Q154 162 162 160 Z" fill="#93A894"/>
+<path d="M242 138 Q252 138 250 150 Q246 160 238 158 Z" fill="#93A894"/>
+<path d="M160 120 Q158 84 200 82 Q242 84 242 124 L238 164 Q232 196 200 198 Q168 196 162 164 Z" fill="#93A894"/>
+<path d="M178 96 Q200 90 222 96" fill="none" stroke="#6F8670" stroke-width="2.5"/>
+<path d="M160 136 Q150 104 168 100 Q166 118 172 130 Z M240 134 Q250 102 232 98 Q234 116 228 128 Z" fill="#A9ADB0"/>
+<path d="M172 102 Q166 110 170 120" fill="none" stroke="#A9ADB0" stroke-width="3"/>
+<path d="M170 128 Q184 120 196 128 L196 132 Q184 126 170 134 Z M204 128 Q216 120 230 128 L230 134 Q216 126 204 132 Z" fill="#C9CCCF" stroke-width="2"/>
+<ellipse cx="183" cy="142" rx="12" ry="9" fill="#6C886F" stroke="none"/>
+<ellipse cx="217" cy="142" rx="12" ry="9" fill="#6C886F" stroke="none"/>
+<circle cx="183" cy="142" r="6" fill="#EDE7B5" stroke-width="2"/>
+<circle cx="217" cy="142" r="6" fill="#D8DCD6" stroke-width="2"/>
+<circle cx="184" cy="143" r="1.8" fill="#1A1E1C" stroke="none"/>
+<path d="M168 150 L198 150 L196 160 Q184 166 170 158 Z M202 150 L232 150 L230 158 Q216 166 204 160 Z" fill="#BFE3EA" fill-opacity="0.25" stroke-width="2.5"/>
+<path d="M198 152 L202 152 M168 151 L160 146 M232 151 L240 146" stroke-width="2.5"/>
+<path d="M172 128 L168 124 M228 128 L232 124 M176 170 Q172 176 174 182 M224 170 Q228 176 226 182" fill="none" stroke="#6F8670" stroke-width="2"/>
+<path d="M200 156 L197 166 L203 167" fill="none" stroke-width="2.5"/>
+<path d="M182 176 Q190 168 200 172 Q210 168 218 176 Q210 180 200 177 Q190 180 182 176 Z" fill="#D8DCD6" stroke-width="2.5"/>
+<path d="M188 186 Q200 180 212 186" fill="none" stroke-width="3"/>
+<path d="M210 186 Q214 194 210 200" fill="none" stroke="#7A2620" stroke-width="2.5"/>
+</g>
+</svg>

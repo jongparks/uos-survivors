@@ -1,0 +1,82 @@
+{
+  "id": "ZOMBIE_006",
+  "key": "professor",
+  "faction": "zombie",
+  "name_ko": "교수 좀비",
+  "name_en": "Professor Zombie",
+  "role": "지휘·표적 지정 (commander / target marking) - 제안",
+  "university": "University of Seoul (서울시립대학교)",
+  "skill": {
+    "name_ko": "F 학점",
+    "name_en": "F Grade",
+    "desc_ko": "레이저 포인터로 인간 한 명을 지목해 'F' 표식을 붙인다. 표식이 붙은 인간은 이동 속도가 줄고, 주변 좀비가 모두 그 인간을 우선 추적한다.",
+    "status": "proposal",
+    "cooldown": "[TBD]",
+    "duration": "[TBD]",
+    "range": "[TBD]"
+  },
+  "lore_ko": "정년을 앞둔 정교수. 감염된 뒤에도 출석부를 끼고 연구실과 강의실을 오간다. 대학원생 좀비(ZOMBIE_002)의 스킬 '교수님이 찾으신다'의 그 교수님.",
+  "art": {
+    "style": "flat color vector, bold dark outline (3.5px at 400px width), no gradients, not pixel art",
+    "view": "front, pointing pose: right arm extended holding laser pointer with red beam, attendance book under left arm",
+    "source_vector": "professor.svg",
+    "canvas_px": {
+      "width": 412,
+      "height": 620
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92
+    },
+    "facing": "right; flip horizontally for left",
+    "sprites": {
+      "hires": "professor_hires.png",
+      "256": "professor_256px.png",
+      "128": "professor_128px.png",
+      "64": "professor_64px.png",
+      "32": "professor_32px.png"
+    },
+    "background": "transparent (RGBA PNG)",
+    "recommended_filtering": "linear/bilinear",
+    "vfx_note": "red laser beam + dot (first <g stroke=#D9483B> group) is baked in; remove it for a non-casting idle sprite"
+  },
+  "palette": {
+    "skin": "#93A894",
+    "tweed_jacket": "#8A6E4E",
+    "lapel": "#6E553A",
+    "elbow_patch": "#5E4630",
+    "shirt": "#DDE4EA",
+    "tie": "#7A2632",
+    "attendance_book": "#2F4A3E",
+    "grey_hair": "#A9ADB0",
+    "laser_red": "#D9483B",
+    "slacks": "#5A5F66",
+    "shoes": "#5B3A2A",
+    "outline": "#1A1E1C"
+  },
+  "identifying_features": [
+    "brown tweed blazer with elbow patch, loosened maroon tie, torn collar with bite wound",
+    "laser pointer with red beam and dot (skill aim)",
+    "green '출석부' attendance book under left arm",
+    "red and blue pens in chest pocket",
+    "balding head with grey side hair, white mustache, half-moon reading glasses, one milky eye"
+  ],
+  "suggested_spawn": {
+    "map": "MAP_UOS_MAIN",
+    "area_ko": "대학본부 또는 연구동(시대융합관·정보기술관) 주변",
+    "note": "대학원생 좀비 스폰 근처에 두면 연계가 자연스러움"
+  },
+  "gameplay": {
+    "hp": "[TBD]",
+    "speed": "[TBD]",
+    "damage": "[TBD]",
+    "hitbox_note": "suggested body hitbox x 0.30-0.68, y 0.12-0.92 of sprite (excludes beam)"
+  },
+  "todo_animations": [
+    "walk",
+    "attack",
+    "skill_cast (point)",
+    "hit",
+    "death"
+  ]
+}
