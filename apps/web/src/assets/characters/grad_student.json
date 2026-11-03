@@ -1,0 +1,71 @@
+{
+  "id": "ZOMBIE_002",
+  "key": "grad_student",
+  "name_ko": "대학원생",
+  "name_en": "Grad Student",
+  "role": "탐지·추적 (detection / tracking)",
+  "university": "University of Seoul (서울시립대학교)",
+  "skill": {
+    "name_ko": "교수님이 찾으신다",
+    "name_en": "The Professor Is Looking For You",
+    "desc_ko": "휴대폰 알림이 울리면 주변 플레이어 위치를 포착해 다른 좀비에게 공유. 포착 시 눈이 청록색으로 발광."
+  },
+  "lore_ko": "연구실에서 몇 년째 졸업을 기다리던 서울시립대 박사과정생. 감염 후에도 교수님 메시지엔 1초 만에 반응한다.",
+  "art": {
+    "style": "flat color vector, bold dark outline (3.5px at 400px width), no gradients, not pixel art",
+    "view": "front, hunched, glowing phone in right hand, laptop under left arm, cyan scan lines from eyes to a reticle",
+    "source_vector": "grad_student.svg",
+    "canvas_px": {
+      "width": 412,
+      "height": 620
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92,
+      "note": "normalized, origin top-left; at the feet"
+    },
+    "facing": "right; flip horizontally for left",
+    "sprites": {
+      "hires": "grad_student_hires.png",
+      "256": "grad_student_256px.png",
+      "128": "grad_student_128px.png",
+      "64": "grad_student_64px.png",
+      "32": "grad_student_32px.png"
+    },
+    "background": "transparent (RGBA PNG)",
+    "recommended_filtering": "linear/bilinear",
+    "vfx_note": "cyan scan lines + reticle (x>=240) are part of the sprite; split into separate layer if you want to toggle it"
+  },
+  "palette": {
+    "skin": "#9DB39A",
+    "lab_coat": "#E7E9E4",
+    "sweater": "#6E6A7A",
+    "slacks": "#4E5552",
+    "alert_red": "#D9483B",
+    "scan_cyan": "#7FE6F0",
+    "outline": "#1A1E1C"
+  },
+  "identifying_features": [
+    "white lab coat with coffee stains and three pens in chest pocket",
+    "'LAB' access card on teal lanyard",
+    "glowing phone with red notification (skill trigger)",
+    "laptop clamped under left arm",
+    "cyan glowing eyes, heavy dark circles, grey hair streak, stubble",
+    "white socks + sandals"
+  ],
+  "gameplay": {
+    "hp": "[TBD]",
+    "speed": "[TBD]",
+    "damage": "[TBD]",
+    "skill_cooldown": "[TBD]",
+    "skill_range": "[TBD]",
+    "hitbox_note": "suggested body hitbox x 0.28-0.70, y 0.14-0.92 of sprite"
+  },
+  "todo_animations": [
+    "walk",
+    "attack",
+    "skill_cast",
+    "hit",
+    "death"
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "id": "ZOMBIE_001",
+  "key": "drunk_student",
+  "name_ko": "만취생",
+  "name_en": "Drunk Student",
+  "role": "원거리 감염 (ranged infection)",
+  "university": "University of Seoul (서울시립대학교)",
+  "skill": {
+    "name_ko": "숙취 폭발",
+    "name_en": "Hangover Burst",
+    "desc_ko": "녹색 병을 던져 착지 지점에 숙취 가스 구름을 남긴다. 구름 안 플레이어는 감염 게이지 상승 + 화면 흔들림."
+  },
+  "lore_ko": "개강총회 뒤풀이에서 감염된 서울시립대 신입생. 과잠은 반쯤 흘러내렸고 신발 한 짝을 잃어버렸다.",
+  "art": {
+    "style": "flat color vector, bold dark outline (3.5px at 400px width), no gradients, not pixel art",
+    "view": "front, throwing pose: right arm raised overhead holding green bottle, body swaying, head tilted left",
+    "source_vector": "drunk_student.svg",
+    "canvas_px": {
+      "width": 412,
+      "height": 620
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92,
+      "note": "normalized, origin top-left; at the feet"
+    },
+    "facing": "right; flip horizontally for left",
+    "sprites": {
+      "hires": "drunk_student_hires.png",
+      "256": "drunk_student_256px.png",
+      "128": "drunk_student_128px.png",
+      "64": "drunk_student_64px.png",
+      "32": "drunk_student_32px.png"
+    },
+    "background": "transparent (RGBA PNG)",
+    "recommended_filtering": "linear/bilinear",
+    "projectile": "green bottle (see bottle in raised hand, approx x 296-320, y 48-136 in 400x620 space)"
+  },
+  "palette": {
+    "skin": "#9DB39A",
+    "jacket": "#2F3D63",
+    "sleeve": "#E6E0CF",
+    "tee": "#DCD8CC",
+    "necktie": "#B23A48",
+    "bottle": "#4FA36A",
+    "toxic_cloud": "#A8E07A",
+    "cheek": "#C96B7A",
+    "jeans": "#4A5A72",
+    "outline": "#1A1E1C"
+  },
+  "identifying_features": [
+    "navy varsity jacket with cream sleeves and 'UOS' chest patch",
+    "red necktie tied around forehead",
+    "green glass bottle held overhead (projectile)",
+    "flushed cheeks, half-closed eyes, green breath cloud",
+    "one shoe missing - holed sock on right foot"
+  ],
+  "gameplay": {
+    "hp": "[TBD]",
+    "speed": "[TBD]",
+    "damage": "[TBD]",
+    "skill_cooldown": "[TBD]",
+    "skill_range": "[TBD]",
+    "hitbox_note": "suggested body hitbox x 0.30-0.68, y 0.14-0.92 of sprite"
+  },
+  "todo_animations": [
+    "walk",
+    "attack",
+    "skill_cast",
+    "hit",
+    "death"
+  ]
+}

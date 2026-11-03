@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="412" height="620" viewBox="-6 0 412 620">
+<title>ZOMBIE_003 중도 NPC</title>
+<g stroke="#1A1E1C" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+<rect x="40" y="548" width="60" height="14" rx="2" fill="#3E6E8E"/>
+<rect x="46" y="536" width="52" height="12" rx="2" fill="#E1B04A"/>
+<rect x="60" y="524" width="18" height="14" fill="#F2D56B" stroke-width="2" transform="rotate(-8 69 531)"/>
+<rect x="300" y="552" width="62" height="14" rx="2" fill="#9C4A3A"/>
+<rect x="306" y="540" width="50" height="12" rx="2" fill="#5E8A5A"/>
+<rect x="150" y="496" width="40" height="40" fill="#6B6F75"/>
+<rect x="210" y="496" width="40" height="40" fill="#62666C"/>
+<rect x="152" y="530" width="36" height="12" fill="#EEEAE0"/>
+<rect x="212" y="530" width="36" height="12" fill="#EEEAE0"/>
+<path d="M140 552 L194 552 L196 568 L136 568 Z" fill="#2C3550"/>
+<path d="M144 538 L190 538 L192 556 L142 556 Z" fill="#2C3550"/>
+<path d="M156 540 L152 554 M166 540 L162 554 M176 540 L172 554" stroke="#E6E2D6" stroke-width="3"/>
+<path d="M206 552 L260 552 L264 568 L204 568 Z" fill="#2C3550"/>
+<path d="M208 538 L256 538 L258 556 L206 556 Z" fill="#2C3550"/>
+<path d="M226 540 L222 554 M236 540 L232 554 M246 540 L242 554" stroke="#E6E2D6" stroke-width="3"/>
+<path d="M146 160 Q140 80 200 74 Q260 80 254 160 L252 212 Q200 228 148 212 Z" fill="#2F3439"/>
+<path d="M128 230 Q140 206 200 204 Q260 206 272 230 L292 500 Q200 516 108 500 Z" fill="#2A2E33"/>
+<path d="M122 270 Q200 280 278 270 M118 320 Q200 330 282 320 M114 370 Q200 380 286 370 M112 420 Q200 430 288 420 M110 465 Q200 476 290 465" fill="none" stroke="#3E444C" stroke-width="3"/>
+<path d="M200 214 L200 510" stroke="#5A6068" stroke-width="2.5"/>
+<rect x="234" y="436" width="34" height="18" rx="2" fill="#F1EEE4" stroke-width="2" transform="rotate(6 251 445)"/>
+<text x="251" y="449" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="700" font-size="8" fill="#1A1E1C" stroke="none" transform="rotate(6 251 445)">좌석 127</text>
+<path d="M168 118 Q168 96 200 94 Q232 96 232 120 L230 160 Q226 186 200 188 Q174 186 170 160 Z" fill="#9DB39A"/>
+<path d="M168 118 Q170 96 200 94 Q230 96 232 118 L224 110 L216 120 L206 106 L196 120 L186 106 L178 120 Z" fill="#2A2522"/>
+<ellipse cx="186" cy="140" rx="10" ry="8" fill="#6C886F" stroke="none"/>
+<ellipse cx="214" cy="140" rx="10" ry="8" fill="#6C886F" stroke="none"/>
+<circle cx="186" cy="140" r="5" fill="#EDE7B5" stroke-width="2"/>
+<circle cx="214" cy="140" r="5" fill="#EDE7B5" stroke-width="2"/>
+<circle cx="186" cy="141" r="1.4" fill="#1A1E1C" stroke="none"/>
+<circle cx="214" cy="141" r="1.4" fill="#1A1E1C" stroke="none"/>
+<path d="M176 132 L196 134 M204 134 L224 132" fill="none" stroke-width="3"/>
+<path d="M200 146 L198 156 L203 157" fill="none" stroke-width="2.5"/>
+<path d="M176 174 Q200 192 224 174 L222 188 Q200 202 178 188 Z" fill="#EDEDE8" stroke-width="2.5"/>
+<path d="M176 176 L168 160 M224 176 L232 160" fill="none" stroke="#EDEDE8" stroke-width="2"/>
+<path d="M150 124 Q200 52 250 124" fill="none" stroke="#1A1E1C" stroke-width="14"/>
+<path d="M150 124 Q200 52 250 124" fill="none" stroke="#D8D4C8" stroke-width="8"/>
+<rect x="138" y="114" width="20" height="38" rx="9" fill="#D8D4C8"/>
+<rect x="242" y="114" width="20" height="38" rx="9" fill="#D8D4C8"/>
+<path d="M136 236 Q112 280 130 330 L166 342 L168 316 Q150 300 156 262 Z" fill="#2A2E33"/>
+<path d="M264 236 Q288 280 270 330 L234 342 L232 316 Q250 300 244 262 Z" fill="#2A2E33"/>
+<rect x="146" y="330" width="108" height="28" rx="2" fill="#3E6E8E"/>
+<rect x="152" y="304" width="98" height="26" rx="2" fill="#9C4A3A"/>
+<rect x="148" y="280" width="104" height="24" rx="2" fill="#E1B04A"/>
+<rect x="158" y="258" width="86" height="22" rx="2" fill="#5E8A5A"/>
+<text x="200" y="349" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="12" fill="#F1EEE4" stroke="none">TOEIC</text>
+<text x="200" y="322" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="12" fill="#F1EEE4" stroke="none">행정학</text>
+<text x="200" y="297" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="11" fill="#1A1E1C" stroke="none">PSAT</text>
+<text x="200" y="274" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="11" fill="#F1EEE4" stroke="none">행정법</text>
+<g transform="rotate(-10 216 246)">
+<rect x="198" y="230" width="38" height="30" fill="#F2D56B" stroke-width="2.5"/>
+<text x="217" y="250" text-anchor="middle" font-family="Noto Sans KR, Noto Sans CJK KR, sans-serif" font-weight="900" font-size="10" fill="#1A1E1C" stroke="none">맡음</text>
+</g>
+<ellipse cx="152" cy="336" rx="13" ry="11" fill="#9DB39A"/>
+<ellipse cx="248" cy="336" rx="13" ry="11" fill="#9DB39A"/>
+</g>
+</svg>

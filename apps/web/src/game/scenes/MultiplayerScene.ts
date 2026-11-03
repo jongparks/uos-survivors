@@ -36,7 +36,7 @@ import { NetworkDecoyView } from "../entities/NetworkDecoyView";
 import { NetworkPlayerView } from "../entities/NetworkPlayerView";
 import { KeyboardInput } from "../input/KeyboardInput";
 import { createGeneratedTextures, TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
-import { NORMAL_ZOMBIE_DESIGN } from "../rendering/normalZombieDesign";
+import { ZOMBIE_DESIGNS } from "../rendering/zombieDesigns";
 
 interface FossilHideSpotMarker {
   data: FossilHideSpotView;
@@ -70,16 +70,17 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   preload(): void {
-    if (!this.textures.exists(NORMAL_ZOMBIE_DESIGN.textureKey)) {
-      this.load.svg(NORMAL_ZOMBIE_DESIGN.textureKey, NORMAL_ZOMBIE_DESIGN.sourceUrl, {
-        width: NORMAL_ZOMBIE_DESIGN.textureWidth,
-        height: NORMAL_ZOMBIE_DESIGN.textureHeight,
-      });
+    for (const design of Object.values(ZOMBIE_DESIGNS)) {
+      if (design && !this.textures.exists(design.textureKey)) {
+        this.load.svg(design.textureKey, design.sourceUrl, { width: design.textureWidth, height: design.textureHeight });
+      }
     }
   }
 
   create(): void {
-    this.textures.get(NORMAL_ZOMBIE_DESIGN.textureKey).setFilter(Phaser.Textures.FilterMode.LINEAR);
+    for (const design of Object.values(ZOMBIE_DESIGNS)) {
+      if (design) this.textures.get(design.textureKey).setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
     createGeneratedTextures(this);
     this.createMap();
     this.vomitGraphics = this.add.graphics().setDepth(7);

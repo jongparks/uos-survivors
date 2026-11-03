@@ -1,0 +1,74 @@
+{
+  "id": "ZOMBIE_003",
+  "key": "library_npc",
+  "name_ko": "중도 NPC",
+  "name_en": "Library NPC",
+  "role": "지형 통제·봉쇄 (area denial / blockade)",
+  "university": "University of Seoul (서울시립대학교)",
+  "skill": {
+    "name_ko": "자리 맡아놨습니다",
+    "name_en": "Seat Taken",
+    "desc_ko": "포스트잇 붙인 수험서 더미를 바닥에 깔아 통로·좌석을 점거. 책 더미는 이동을 막거나 느리게 하는 장애물."
+  },
+  "lore_ko": "서울시립대 중앙도서관 열람실에 사는 공시생. 감염 후에도 같은 자리를 지키며 시험 날만 기다린다.",
+  "art": {
+    "style": "flat color vector, bold dark outline (3.5px at 400px width), no gradients, not pixel art",
+    "view": "front, standing wide, hugging a stack of exam books, hood up",
+    "source_vector": "library_npc.svg",
+    "canvas_px": {
+      "width": 412,
+      "height": 620
+    },
+    "pivot": {
+      "x": 0.5,
+      "y": 0.92,
+      "note": "normalized, origin top-left; at the feet"
+    },
+    "facing": "right; flip horizontally for left",
+    "sprites": {
+      "hires": "library_npc_hires.png",
+      "256": "library_npc_256px.png",
+      "128": "library_npc_128px.png",
+      "64": "library_npc_64px.png",
+      "32": "library_npc_32px.png"
+    },
+    "background": "transparent (RGBA PNG)",
+    "recommended_filtering": "linear/bilinear",
+    "obstacle_note": "ground book piles (left x40-100, right x300-362, y524-566) double as obstacle sprite reference for the skill"
+  },
+  "palette": {
+    "skin": "#9DB39A",
+    "padding": "#2A2E33",
+    "headphones": "#D8D4C8",
+    "book_blue": "#3E6E8E",
+    "book_red": "#9C4A3A",
+    "book_yellow": "#E1B04A",
+    "book_green": "#5E8A5A",
+    "postit": "#F2D56B",
+    "outline": "#1A1E1C"
+  },
+  "identifying_features": [
+    "black long padded coat with hood up (widest silhouette - tank)",
+    "noise-cancelling headphones over hood",
+    "face mask pulled down to chin",
+    "book stack: 행정법 / PSAT / 행정학 / TOEIC, yellow '맡음' post-it on top",
+    "'좌석 127' seat ticket on coat",
+    "striped slippers + white socks",
+    "book piles on ground (obstacle props)"
+  ],
+  "gameplay": {
+    "hp": "[TBD]",
+    "speed": "[TBD]",
+    "damage": "[TBD]",
+    "skill_cooldown": "[TBD]",
+    "skill_range": "[TBD]",
+    "hitbox_note": "suggested body hitbox x 0.26-0.74, y 0.12-0.93 of sprite"
+  },
+  "todo_animations": [
+    "walk",
+    "attack",
+    "skill_cast",
+    "hit",
+    "death"
+  ]
+}
