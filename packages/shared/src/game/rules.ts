@@ -22,6 +22,7 @@ export const COMBAT_RULES = {
   minimumPlayersToStart: 2,
   zombieAttackRange: 68,
   zombieAttackConeCosine: 0.35,
-  zombieAttackCooldownMs: 600,
+  // Basic attack resolves once immediately; no windup or movement recovery lock.
+  zombieAttackCooldownMs: 2_000,
   infectionAttackLockMs: 1_500,
 } as const;
