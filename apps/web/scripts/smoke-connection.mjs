@@ -2,380 +2,183 @@ import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-
 import { Client } from "@colyseus/sdk";
 import {
-  COMBAT_RULES,
-  GAME_PHASE,
-  GAME_LIMITS,
-  HUMAN_CHARACTER_IDS,
-  MATCH_WINNER,
-  MovementInput,
-  NETWORK_RATE,
-  PLAYER_SPEED,
-  TILE_SIZE,
-  getCharacterSpeedMultiplier,
-  PLAYER_ROLE,
-  ROOM_NAMES,
-  ROOM_VISIBILITY,
-  CHARACTER_IDS,
-  DANGER_MESSAGES,
-  SPECIAL_ZOMBIE_CHARACTER_IDS,
-  GRADUATE_TRACKING_MESSAGE,
-  LIBRARY_PLACEMENT_FAILED_MESSAGE,
+  CHARACTER_IDS, DANGER_MESSAGES, GAME_PHASE, GRADUATE_TRACKING_MESSAGE,
+  LIBRARY_PLACEMENT_FAILED_MESSAGE, MATCH_MESSAGES, MovementInput, NETWORK_RATE,
+  PLAYER_SPEED, PLAYER_ROLE, ROOM_NAMES, ROOM_VISIBILITY, validateAssignments,
+  TEST_MAP_WIDTH, TEST_MAP_HEIGHT, TILE_INDEX, TILE_SIZE, getTestMapTile, tileToWorld,
 } from "@uos-survivors/shared";
 
-const webDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repositoryRoot = path.resolve(webDirectory, "../../..");
-const serverEntry = path.join(repositoryRoot, "apps/server/dist/index.js");
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const endpoint = "http://localhost:2568";
-
-const server = spawn(process.execPath, [serverEntry], {
-  cwd: repositoryRoot,
-  env: { ...process.env, PORT: "2568", NODE_ENV: "test" },
+const server = spawn(process.execPath, [path.join(repositoryRoot, "apps/server/dist/index.js")], {
+  cwd: repositoryRoot, env: { ...process.env, PORT: "2568", NODE_ENV: "test" },
   stdio: ["ignore", "pipe", "pipe"],
 });
-
 let serverOutput = "";
-server.stdout.on("data", (chunk) => {
-  serverOutput += chunk.toString();
-});
-server.stderr.on("data", (chunk) => {
-  serverOutput += chunk.toString();
-});
-
-async function waitForHealth() {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    try {
-      const response = await fetch(`${endpoint}/health`);
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // The process may still be starting.
-    }
-    await delay(100);
-  }
-
-  throw new Error(`Server did not become healthy.\n${serverOutput}`);
-}
-
-async function waitUntil(predicate, message) {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    if (predicate()) {
-      return;
-    }
+server.stdout.on("data", chunk => { serverOutput += chunk.toString(); });
+server.stderr.on("data", chunk => { serverOutput += chunk.toString(); });
+async function waitUntil(predicate, message, attempts = 100) {
+  for (let i = 0; i < attempts; i++) {
+    if (await predicate()) return;
     await delay(50);
   }
-
-  throw new Error(message);
+  throw new Error(message + "\n" + serverOutput.slice(-1200));
 }
-
 const rooms = [];
+function track(room) {
+  rooms.push(room);
+  room.onMessage(GRADUATE_TRACKING_MESSAGE, () => {});
+  room.onMessage(LIBRARY_PLACEMENT_FAILED_MESSAGE, () => {});
+  room.onMessage(DANGER_MESSAGES.update, () => {});
+  return room;
+}
+function verify(room, count) {
+  const players = [...room.state.players.entries()];
+  const assignments = new Map(players.map(([id, p]) => [id, p.characterId]));
+  if (!validateAssignments(players.map(([id]) => id), assignments) ||
+      room.state.matchParticipantCount !== count ||
+      players.filter(([, p]) => p.role === PLAYER_ROLE.zombie).length !== 1 ||
+      room.state.players.get(room.state.initialZombieSessionId)?.role !== PLAYER_ROLE.zombie) {
+    throw new Error("Invalid randomized match distribution at " + count + " participants");
+  }
+}
 try {
-  await waitForHealth();
-  const privateHostRoom = await new Client(endpoint).create(ROOM_NAMES.game, {
-    nickname: "PrivateHost",
-    visibility: ROOM_VISIBILITY.private,
-  });
-  rooms.push(privateHostRoom);
-
-  if (!privateHostRoom.sessionId || !privateHostRoom.roomId) {
-    throw new Error("Colyseus connection did not provide room identifiers");
+  await waitUntil(async () => {
+    try { return (await fetch(endpoint + "/health")).ok; } catch { return false; }
+  }, "Server failed to start", 240);
+  const privateHost = track(await new Client(endpoint).create(ROOM_NAMES.game, {
+    nickname: "PrivateHost", visibility: ROOM_VISIBILITY.private,
+  }));
+  const publicHost = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
+    nickname: "PublicHost", visibility: ROOM_VISIBILITY.public,
+  }));
+  if (privateHost.roomId === publicHost.roomId) throw new Error("Quick join entered a private room");
+  const publicGuest = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
+    nickname: "PublicGuest", visibility: ROOM_VISIBILITY.public,
+  }));
+  if (publicGuest.roomId !== publicHost.roomId) throw new Error("Quick join did not reuse waiting public room");
+  for (let i = 0; i < 6; i++) {
+    track(await new Client(endpoint).joinById(publicHost.roomId, { nickname: "Public" + i }));
   }
-
-  if (!/^[A-HJ-NP-Z2-9]{6}$/.test(privateHostRoom.roomId)) {
-    throw new Error(`Invalid invite code: ${privateHostRoom.roomId}`);
+  await waitUntil(() => publicHost.state.players.size === 8, "Public room did not synchronize eight players");
+  if (publicHost.state.phase !== GAME_PHASE.waiting) throw new Error("Room started before host confirmation");
+  publicGuest.send(MATCH_MESSAGES.start);
+  await delay(100);
+  if (publicHost.state.phase !== GAME_PHASE.waiting) throw new Error("Non-host started the match");
+  publicHost.send(MATCH_MESSAGES.start);
+  await waitUntil(() => publicHost.state.phase === GAME_PHASE.playing, "Host could not start an eight-player match");
+  verify(publicHost, 8);
+  const originalPublic = new Map([...publicHost.state.players].map(([id, p]) => [id, p.characterId]));
+  publicHost.send(MATCH_MESSAGES.start);
+  await delay(100);
+  if ([...originalPublic].some(([id, c]) => publicHost.state.players.get(id)?.characterId !== c)) {
+    throw new Error("Repeated start rerolled assignments");
   }
+  let rejectedFull = false;
+  try { track(await new Client(endpoint).joinById(publicHost.roomId, { nickname: "Overflow" })); }
+  catch { rejectedFull = true; }
+  if (!rejectedFull) throw new Error("Room accepted a ninth player");
 
-  await waitUntil(
-    () => privateHostRoom.state.isPrivate,
-    "Private room state was not synchronized",
-  );
-
-  const publicHostRoom = await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
-    nickname: "QuickHost",
-    visibility: ROOM_VISIBILITY.public,
-  });
-  rooms.push(publicHostRoom);
-
-  if (publicHostRoom.roomId === privateHostRoom.roomId || publicHostRoom.state.isPrivate) {
-    throw new Error("Quick join matched an invite-only room");
+  for (let i = 0; i < 2; i++) track(await new Client(endpoint).joinById(privateHost.roomId, { nickname: "Private" + i }));
+  privateHost.send(MATCH_MESSAGES.start);
+  await delay(100);
+  if (privateHost.state.phase !== GAME_PHASE.waiting) throw new Error("Match started with fewer than four participants");
+  track(await new Client(endpoint).joinById(privateHost.roomId, { nickname: "PrivateFourth" }));
+  privateHost.send(MATCH_MESSAGES.start);
+  await waitUntil(() => privateHost.state.phase === GAME_PHASE.playing, "Private four-player match failed to start");
+  verify(privateHost, 4);
+  const originalPrivate = new Map([...privateHost.state.players].map(([id, p]) => [id, p.characterId]));
+  const lateJoin = track(await new Client(endpoint).joinById(privateHost.roomId, { nickname: "LateJoin", characterId: CHARACTER_IDS.xmanZombie, role: PLAYER_ROLE.zombie }));
+  await waitUntil(() => privateHost.state.players.size === 5, "Mid-match join did not synchronize");
+  if (privateHost.state.players.get(lateJoin.sessionId)?.characterId !== CHARACTER_IDS.normalHuman ||
+      privateHost.state.matchParticipantCount !== 4 ||
+      [...originalPrivate].some(([id, c]) => privateHost.state.players.get(id)?.characterId !== c)) {
+    throw new Error("Mid-match join changed initial assignments");
   }
+  await waitUntil(() => lateJoin.state.players.has(lateJoin.sessionId), "Late join player missing");
+  const own = lateJoin.state.players.get(lateJoin.sessionId);
+  const input = lateJoin.input({ type: MovementInput, mode: "reliable" });
+  const x = own.x, y = own.y;
+  input.data.moveX = 127; input.data.moveY = 1; input.send();
+  await waitUntil(() => own.x > x && own.y > y, "Movement was not processed");
+  if (Math.hypot(own.x - x, own.y - y) > PLAYER_SPEED / NETWORK_RATE.simulationHz + 0.5 ||
+      Math.abs((own.x - x) - (own.y - y)) > 0.5) throw new Error("Input sanitization or diagonal normalization failed");
+  input.data.moveX = 0; input.data.moveY = 0; input.data.useSkill = true; input.send();
+  await delay(100);
+  if (own.characterId !== CHARACTER_IDS.normalHuman || own.rewindCooldownEndsAt || own.trapCooldownEndsAt ||
+      own.philosophyCooldownEndsAt || own.cooldownEndsAt || own.activeDecoyId) throw new Error("Normal human activated a special ability");
 
-  const quickGuestRoom = await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, {
-    nickname: "QuickGuest",
-    visibility: ROOM_VISIBILITY.public,
-  });
-  rooms.push(quickGuestRoom);
+  let lastDanger;
+  lateJoin.onMessage(DANGER_MESSAGES.update, update => { lastDanger = update; });
+  lateJoin.send(DANGER_MESSAGES.subscribe);
+  await waitUntil(() => lastDanger, "Human danger state did not synchronize");
+  if (Object.keys(lastDanger).join(",") !== "level") throw new Error("Danger message exposed identifying information");
 
-  if (quickGuestRoom.roomId !== publicHostRoom.roomId) {
-    throw new Error("Quick join did not reuse the available public room");
+  let dropped = false, resumed = false;
+  lateJoin.reconnection.minUptime = 0;
+  lateJoin.onDrop(() => { dropped = true; });
+  lateJoin.onReconnect(() => { resumed = true; });
+  const session = lateJoin.sessionId;
+  void lateJoin.leave(false);
+  await waitUntil(() => dropped && resumed, "Automatic reconnect failed");
+  if (lateJoin.sessionId !== session || lateJoin.state.players.get(session)?.characterId !== CHARACTER_IDS.normalHuman) {
+    throw new Error("Reconnect changed session or character");
   }
-
-  const invitedPrivateGuest = await new Client(endpoint).joinById(privateHostRoom.roomId, {
-    nickname: "InvitedGuest",
-  });
-  rooms.push(invitedPrivateGuest);
-
-  if (invitedPrivateGuest.roomId !== privateHostRoom.roomId) {
-    throw new Error("Invite code did not join the private room");
-  }
-
-  const guestRooms = await Promise.all(
-    Array.from({ length: GAME_LIMITS.maxPlayersPerRoom - 2 }, (_, index) =>
-      new Client(endpoint).joinById(publicHostRoom.roomId, {
-        nickname: `Guest${index + 1}`,
-      }),
-    ),
-  );
-  rooms.push(...guestRooms);
-
-  await waitUntil(
-    () => publicHostRoom.state.players.size === GAME_LIMITS.maxPlayersPerRoom,
-    "Eight connected players were not synchronized",
-  );
-  await waitUntil(
-    () => privateHostRoom.state.players.size === 2,
-    "Private invite-code players were not synchronized",
-  );
-
-  if (
-    publicHostRoom.state.players.get(publicHostRoom.sessionId)?.role !== PLAYER_ROLE.zombie ||
-    publicHostRoom.state.players.get(quickGuestRoom.sessionId)?.role !== PLAYER_ROLE.human
-  ) {
-    throw new Error("Initial zombie and human roles were not assigned");
-  }
-
-  if (
-    !SPECIAL_ZOMBIE_CHARACTER_IDS.includes(publicHostRoom.state.players.get(publicHostRoom.sessionId)?.characterId) ||
-    Array.from(publicHostRoom.state.players.values()).some(
-      (player) =>
-        player.role === PLAYER_ROLE.human &&
-        !HUMAN_CHARACTER_IDS.includes(player.characterId),
-    )
-  ) {
-    throw new Error("Human characters were not assigned from the server random pool");
-  }
-
-  const hostPlayer = publicHostRoom.state.players.get(publicHostRoom.sessionId);
-  if (!hostPlayer) {
-    throw new Error("Host player was not present in synchronized state");
-  }
-
-  const hostInput = publicHostRoom.input({ type: MovementInput, mode: "reliable" });
-  if (hostInput.tickRate !== NETWORK_RATE.simulationHz) {
-    throw new Error(`Unexpected advertised input rate: ${hostInput.tickRate}`);
-  }
-
-  const beforeSanitizedInput = hostPlayer.x;
-  const beforeSanitizedInputY = hostPlayer.y;
-  hostInput.data.moveX = 127;
-  hostInput.data.moveY = 1;
-  hostInput.send();
-
-  await waitUntil(
-    () => hostPlayer.x > beforeSanitizedInput && hostPlayer.y > beforeSanitizedInputY,
-    "Sanitized movement input was not processed",
-  );
-
-  const maxSingleStepDistance = PLAYER_SPEED * getCharacterSpeedMultiplier(hostPlayer.characterId, hostPlayer.role, hostPlayer.sprintState, hostPlayer.isDisguised) / NETWORK_RATE.simulationHz + 0.5;
-  const sanitizedDeltaX = hostPlayer.x - beforeSanitizedInput;
-  const sanitizedDeltaY = hostPlayer.y - beforeSanitizedInputY;
-  if (
-    Math.hypot(sanitizedDeltaX, sanitizedDeltaY) > maxSingleStepDistance ||
-    Math.abs(sanitizedDeltaX - sanitizedDeltaY) > 0.5
-  ) {
-    throw new Error("Out-of-range movement input bypassed server sanitization");
-  }
-
-  const inputSequences = [];
-  const initialX = hostPlayer.x;
-  for (let tick = 0; tick < 10; tick += 1) {
-    hostInput.data.moveX = 1;
-    hostInput.data.moveY = 0;
-    inputSequences.push(hostInput.send());
-    await delay(35);
-  }
-  hostInput.data.moveX = 0;
-  hostInput.data.moveY = 0;
-  inputSequences.push(hostInput.send());
-
-  await waitUntil(
-    () => hostPlayer.x > initialX,
-    "Server-authoritative movement was not synchronized",
-  );
-
-  if (inputSequences.some((sequence, index) => sequence <= (inputSequences[index - 1] ?? 0))) {
-    throw new Error("Input sequences were not strictly increasing");
-  }
-
-  await waitUntil(
-    () => hostInput.lastProcessed >= hostInput.sentCount,
-    "Server did not acknowledge all sequenced inputs",
-  );
-  const acknowledgedInputs = hostInput.lastProcessed;
-
-  const privateInput = privateHostRoom.input({ type: MovementInput, mode: "reliable" });
-  const dangerUpdates = [];
-  let zombieDangerUpdates = 0;
-  invitedPrivateGuest.onMessage(DANGER_MESSAGES.update, update => { dangerUpdates.push(update); });
-  privateHostRoom.onMessage(DANGER_MESSAGES.update, () => { zombieDangerUpdates++; });
-  invitedPrivateGuest.send(DANGER_MESSAGES.subscribe);
-  privateHostRoom.send(DANGER_MESSAGES.subscribe);
-  await waitUntil(() => dangerUpdates.some(update => update.level === "WARNING"), "Human did not receive danger warning at two tiles");
-  for (let tick = 0; tick < 5; tick += 1) {
-    privateInput.data.moveX = 1;
-    privateInput.data.moveY = 0;
-    privateInput.data.useSkill = false;
-    privateInput.send();
-    await delay(35);
-  }
-
-  await waitUntil(() => dangerUpdates.some(update => update.level === "DANGER"), "Human danger did not increase when the zombie approached");
-  if (zombieDangerUpdates !== 0 || dangerUpdates.some(update => Object.keys(update).join(",") !== "level")) {
-    throw new Error("Danger update was sent to a zombie or exposed identifying details");
-  }
-  const infectionStartedAt = Date.now();
-  let tracking;
-  let guestTrackingPackets = 0;
-  privateHostRoom.onMessage(GRADUATE_TRACKING_MESSAGE, view => { tracking = view; });
-  privateHostRoom.onMessage(LIBRARY_PLACEMENT_FAILED_MESSAGE, () => {});
-  invitedPrivateGuest.onMessage(GRADUATE_TRACKING_MESSAGE, () => { guestTrackingPackets++; });
-  privateInput.data.moveX = 0;
-  privateInput.data.useSkill = true;
-  privateInput.send();
-  await delay(35);
-  privateInput.data.useSkill = false;
-  privateInput.send();
-
-  if (privateHostRoom.state.players.get(privateHostRoom.sessionId)?.characterId === CHARACTER_IDS.graduateZombie) {
-    await waitUntil(() => tracking?.target?.id === invitedPrivateGuest.sessionId, "Graduate did not privately track the nearest human");
-    if (guestTrackingPackets !== 0) throw new Error("Tracking leaked to another client");
-    privateInput.data.interact = true; privateInput.send();
-  }
-  if ([CHARACTER_IDS.libraryNpc, CHARACTER_IDS.xmanZombie].includes(privateHostRoom.state.players.get(privateHostRoom.sessionId)?.characterId)) {
-    privateInput.data.interact = true; privateInput.send();
-  }
-
-  const infectedPrivateGuest = privateHostRoom.state.players.get(invitedPrivateGuest.sessionId);
-  await waitUntil(
-    () => infectedPrivateGuest?.role === PLAYER_ROLE.zombie,
-    "Vomit projectile did not infect the human after its cast",
-  );
-
-  if (
-    !infectedPrivateGuest ||
-    infectedPrivateGuest.characterId !== CHARACTER_IDS.normalZombie ||
-    infectedPrivateGuest.attackLockedUntil <
-      infectionStartedAt + COMBAT_RULES.infectionAttackLockMs - 250 ||
-    privateHostRoom.state.phase !== GAME_PHASE.finished ||
-    privateHostRoom.state.winner !== MATCH_WINNER.zombie
-  ) {
-    throw new Error("Infection lock or all-infected victory state was invalid");
-  }
-
-  // Verify Space is basic attack even for a special zombie, independent of Shift.
-  const attackHost = await new Client(endpoint).create(ROOM_NAMES.game, { nickname: "AttackHost", visibility: ROOM_VISIBILITY.private });
-  rooms.push(attackHost);
-  const attackGuest = await new Client(endpoint).joinById(attackHost.roomId, { nickname: "AttackGuest" });
-  rooms.push(attackGuest);
-  await waitUntil(() => attackHost.state.phase === GAME_PHASE.playing, "Attack test room did not start");
-  const attackInput = attackHost.input({ type: MovementInput, mode: "reliable" });
-  for (let tick = 0; tick < 5; tick++) {
-    attackInput.data.moveX = 1; attackInput.send(); await delay(35);
-  }
-  attackInput.data.moveX = 0; attackInput.data.interact = true; attackInput.send();
-  await waitUntil(() => attackHost.state.players.get(attackGuest.sessionId)?.characterId === CHARACTER_IDS.normalZombie, "Space basic attack did not convert the human into a normal zombie");
-  if (attackHost.state.players.get(attackHost.sessionId)?.vomitCooldownEndsAt !== 0) throw new Error("Space triggered the special skill");
-
-  const publicSessionId = publicHostRoom.sessionId;
-  let dropped = false;
-  let reconnected = false;
-  publicHostRoom.reconnection.minUptime = 0;
-  publicHostRoom.onDrop(() => {
-    dropped = true;
-  });
-  publicHostRoom.onReconnect(() => {
-    reconnected = true;
-  });
-  void publicHostRoom.leave(false);
-
-  await waitUntil(() => dropped, "Automatic reconnection did not detect the drop");
-  await waitUntil(() => reconnected, "Automatic reconnection did not restore the room");
-
-  if (
-    publicHostRoom.sessionId !== publicSessionId ||
-    publicHostRoom.state.players.size !== GAME_LIMITS.maxPlayersPerRoom
-  ) {
-    throw new Error("Automatic reconnection duplicated or removed a player");
-  }
-
-  const privateSessionId = privateHostRoom.sessionId;
-  const privateReconnectionToken = privateHostRoom.reconnectionToken;
-  privateHostRoom.reconnection.enabled = false;
-  await privateHostRoom.leave(false);
-
-  await waitUntil(
-    () => invitedPrivateGuest.state.players.get(privateSessionId)?.connected === false,
-    "Dropped private player was not marked disconnected",
-  );
-
-  const resumedPrivateRoom = await new Client(endpoint).reconnect(privateReconnectionToken);
-  rooms.push(resumedPrivateRoom);
-  await waitUntil(
-    () => invitedPrivateGuest.state.players.get(privateSessionId)?.connected === true,
-    "Manually reconnected private player was not restored",
-  );
-
-  if (
-    resumedPrivateRoom.sessionId !== privateSessionId ||
-    resumedPrivateRoom.state.players.size !== 2
-  ) {
-    throw new Error("Manual reconnection duplicated or removed a player");
-  }
-
-  const computerRoom = rooms.find(room => room.roomId === publicHostRoom.roomId &&
-    room.state.players.get(room.sessionId)?.characterId === CHARACTER_IDS.computerStudent);
-  if (computerRoom) {
-    const rewindInput = computerRoom.input({ type: MovementInput, mode: "reliable" });
-    // The host may have walked into this guest's original spawn; first leave
-    // that overlap so the rewind destination satisfies player-body collision.
-    for (let tick = 0; tick < 10; tick++) {
-      rewindInput.data.moveY = 1; rewindInput.send(); await delay(35);
-    }
-    rewindInput.data.moveY = 0; rewindInput.send();
-    await delay(3100);
-    rewindInput.data.useSkill = true; rewindInput.send();
-    await waitUntil(() => (publicHostRoom.state.players.get(computerRoom.sessionId)?.lastRewindAt ?? 0) > 0,
-      "Computer Student rewind did not synchronize to another player");
-    const rewound = publicHostRoom.state.players.get(computerRoom.sessionId);
-    if (rewound.role !== PLAYER_ROLE.human || rewound.rewindCooldownEndsAt - rewound.lastRewindAt !== 40000) {
-      throw new Error("Rewind changed team or failed to start its cooldown");
+  lateJoin.reconnection.enabled = false;
+  const token = lateJoin.reconnectionToken;
+  await lateJoin.leave(false);
+  const restored = track(await new Client(endpoint).reconnect(token));
+  await waitUntil(() => restored.state.players?.has(session), "Manual reconnect state missing");
+  if (restored.sessionId !== session || restored.state.players.size !== 5) throw new Error("Manual reconnect duplicated players");
+  // Keep an end-to-end basic infection check even though the initial zombie is random.
+  const zombieId = privateHost.state.initialZombieSessionId;
+  const zombieRoom = rooms.find(room => room.roomId === privateHost.roomId && room.sessionId === zombieId);
+  const attacker = privateHost.state.players.get(zombieId);
+  const victim = privateHost.state.players.get(session);
+  const start = { x: Math.floor(attacker.x / TILE_SIZE), y: Math.floor(attacker.y / TILE_SIZE) };
+  const goal = { x: Math.floor(victim.x / TILE_SIZE), y: Math.floor(victim.y / TILE_SIZE) };
+  const key = p => p.y * TEST_MAP_WIDTH + p.x;
+  const queue = [start], parents = new Map([[key(start), null]]);
+  for (let index = 0; index < queue.length && !parents.has(key(goal)); index++) {
+    const p = queue[index];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const next = { x: p.x + dx, y: p.y + dy };
+      if (next.x < 0 || next.y < 0 || next.x >= TEST_MAP_WIDTH || next.y >= TEST_MAP_HEIGHT ||
+          getTestMapTile(next.x, next.y) !== TILE_INDEX.floor || parents.has(key(next))) continue;
+      parents.set(key(next), p); queue.push(next);
     }
   }
-
-  const philosophyRoom = rooms.find(room => room.roomId === publicHostRoom.roomId &&
-    room.state.players.get(room.sessionId)?.characterId === CHARACTER_IDS.philosophyStudent);
-  if (philosophyRoom) {
-    const philosopher = publicHostRoom.state.players.get(philosophyRoom.sessionId);
-    const target = publicHostRoom.state.players.get(publicHostRoom.sessionId);
-    if (Math.hypot(philosopher.x - target.x, philosopher.y - target.y) <= 3 * TILE_SIZE) {
-      const philosophyInput = philosophyRoom.input({ type: MovementInput, mode: "reliable" });
-      philosophyInput.data.useSkill = true; philosophyInput.send();
-      await waitUntil(() => target.confusionEndsAt > Date.now(), "Philosophy confusion did not synchronize to zombie");
-      const before = target.x;
-      hostInput.data.moveX = 1; hostInput.send();
-      await waitUntil(() => target.x < before, "Confusion did not reverse server movement");
-      hostInput.data.moveX = 0; hostInput.send();
+  if (!parents.has(key(goal))) throw new Error("Infection test could not find a map route");
+  const route = [];
+  for (let point = goal; point; point = parents.get(key(point))) route.unshift(point);
+  const attackInput = zombieRoom.input({ type: MovementInput, mode: "reliable" });
+  let nearVictim = false;
+  for (const point of route) {
+    for (let step = 0; step < 80; step++) {
+      if (Math.hypot(attacker.x - victim.x, attacker.y - victim.y) <= 50) { nearVictim = true; break; }
+      const dx = tileToWorld(point.x) - attacker.x, dy = tileToWorld(point.y) - attacker.y;
+      if (Math.abs(dx) <= 4 && Math.abs(dy) <= 4) break;
+      attackInput.data.moveX = Math.abs(dx) > 4 ? Math.sign(dx) : 0;
+      attackInput.data.moveY = Math.abs(dy) > 4 ? Math.sign(dy) : 0;
+      attackInput.send();
+      await waitUntil(() => attackInput.lastProcessed >= attackInput.sentCount, "Movement route input was not acknowledged");
     }
+    if (nearVictim) break;
   }
-
-  console.log(
-    `Phase 5 foundation smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${resumedPrivateRoom.roomId} (${resumedPrivateRoom.state.players.size}), ack=${acknowledgedInputs}, infectionLock=${COMBAT_RULES.infectionAttackLockMs}ms`,
-  );
+  if (!nearVictim) throw new Error("Zombie did not reach the infection test target");
+  attackInput.data.moveX = Math.sign(victim.x - attacker.x);
+  attackInput.data.moveY = Math.sign(victim.y - attacker.y);
+  attackInput.data.interact = true; attackInput.send();
+  await waitUntil(() => victim.characterId === CHARACTER_IDS.normalZombie, "Space attack failed to infect normal human");
+  if (restored.sessionId !== session || privateHost.state.matchParticipantCount !== 4 ||
+      [...originalPrivate].some(([id, c]) => privateHost.state.players.get(id)?.characterId !== c)) {
+    throw new Error("Infection changed membership or rerolled initial assignments");
+  }
+  console.log("Assignment/network smoke passed: public=8, private=4, lateJoin=HUMAN_000, host-only start, unique specials, unchanged assignments, movement and reconnect");
 } finally {
-  await Promise.allSettled(rooms.map((room) => room.leave()));
+  await Promise.allSettled(rooms.map(room => room.leave()));
   server.kill();
 }
 

@@ -1,6 +1,7 @@
 import { CONTROL_BINDINGS } from "./controls.js";
 
 export const CHARACTER_IDS = {
+  normalHuman: "HUMAN_000",
   fossil: "HUMAN_001",
   sportsStudent: "HUMAN_002",
   sculptureStudent: "HUMAN_003",
@@ -17,7 +18,7 @@ export const CHARACTER_IDS = {
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
 
-export const HUMAN_CHARACTER_IDS = [
+export const SPECIAL_HUMAN_CHARACTER_IDS = [
   CHARACTER_IDS.fossil,
   CHARACTER_IDS.sportsStudent,
   CHARACTER_IDS.sculptureStudent,
@@ -25,15 +26,10 @@ export const HUMAN_CHARACTER_IDS = [
   CHARACTER_IDS.computerStudent,
   CHARACTER_IDS.philosophyStudent,
 ] as const satisfies readonly CharacterId[];
+export const HUMAN_CHARACTER_IDS = [CHARACTER_IDS.normalHuman, ...SPECIAL_HUMAN_CHARACTER_IDS] as const;
 
 export function isCharacterId(value: unknown): value is CharacterId {
   return Object.values(CHARACTER_IDS).includes(value as CharacterId);
-}
-
-export function pickRandomHumanCharacter(randomValue: number): CharacterId {
-  const normalized = Math.min(0.999_999, Math.max(0, randomValue));
-  const index = Math.floor(normalized * HUMAN_CHARACTER_IDS.length);
-  return HUMAN_CHARACTER_IDS[index] ?? CHARACTER_IDS.fossil;
 }
 
 export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc, CHARACTER_IDS.lateZombie, CHARACTER_IDS.xmanZombie] as const;
@@ -55,6 +51,11 @@ export const NORMAL_ZOMBIE_CONFIG = {
   skillId: null,
   canUseBasicAttack: true,
   canInfectHumans: true,
+} as const;
+
+export const NORMAL_HUMAN_CONFIG = {
+  characterId: CHARACTER_IDS.normalHuman, characterName: "시대생", movementSpeedMultiplier: 1,
+  hasSpecialSkill: false, skillId: null, dangerDetectionEnabled: true,
 } as const;
 
 export function getCharacterSpeedMultiplier(characterId: string, role: string, sprintState: string, isDisguised = false): number {

@@ -19,7 +19,7 @@ export const MATCH_WINNER = {
 export type MatchWinner = (typeof MATCH_WINNER)[keyof typeof MATCH_WINNER];
 
 export const COMBAT_RULES = {
-  minimumPlayersToStart: 2,
+  minimumPlayersToStart: 4,
   zombieAttackRange: 68,
   zombieAttackConeCosine: 0.35,
   // Basic attack resolves once immediately; no windup or movement recovery lock.

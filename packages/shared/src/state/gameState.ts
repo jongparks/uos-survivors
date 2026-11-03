@@ -96,6 +96,10 @@ export type EngineeringTrapState = SchemaType<typeof EngineeringTrapState>;
 export const GameState = schema(
   {
     roomCode: t.string().default(""),
+    hostSessionId: t.string().default(""),
+    matchStartedAt: t.float64().default(0),
+    matchParticipantCount: t.uint8().default(0),
+    startError: t.string().default(""),
     isPrivate: t.boolean().default(false),
     phase: t.string().default(GAME_PHASE.waiting),
     winner: t.string().default(MATCH_WINNER.none),

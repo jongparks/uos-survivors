@@ -25,7 +25,9 @@ import {
   UNASSIGNED_CHARACTER_ID,
   applyMovementWithBarriers,
   LIBRARY_PLACEMENT_FAILED_MESSAGE,
-  pickRandomHumanCharacter,
+  assignCharacters,
+  MATCH_MESSAGES,
+  SPECIAL_ZOMBIE_CHARACTER_IDS,
   pickInitialZombieCharacter,
   tileToWorld,
   getPuddleSpeedMultiplier,
@@ -96,6 +98,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.roomCode = this.roomId;
     this.state.isPrivate = options.visibility === ROOM_VISIBILITY.private;
     await this.setPrivate(this.state.isPrivate);
+    this.onMessage(MATCH_MESSAGES.start, client => {
+      if (client.sessionId === this.state.hostSessionId) this.tryStartMatch();
+    });
     this.onMessage(DANGER_MESSAGES.subscribe, client => {
       this.dangerSubscribers.add(client.sessionId);
       const human = this.state.players.get(client.sessionId);
@@ -116,13 +121,13 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     player.connected = true;
     player.role = PLAYER_ROLE.human;
     if (this.state.phase === GAME_PHASE.playing) {
-      player.characterId = pickRandomHumanCharacter(Math.random());
+      player.characterId = CHARACTER_IDS.normalHuman;
     }
     player.x = tileToWorld(spawn.tileX);
     player.y = tileToWorld(spawn.tileY);
     this.state.players.set(client.sessionId, player);
     this.addPlayerToClientViews(client, player);
-    this.tryStartMatch();
+    this.updateHost();
     this.computerRewindSystem.record(this.state, client.sessionId, Date.now());
   }
 
@@ -132,6 +137,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     if (player) {
       player.connected = false;
     }
+    this.updateHost();
 
     this.allowReconnection(client, RECONNECTION.windowSeconds);
   }
@@ -143,6 +149,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     if (player) {
       player.connected = true;
     }
+    this.updateHost();
 
     this.syncClientView(client);
   }
@@ -162,8 +169,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.hideSpotSubscribers.delete(client.sessionId);
     this.sculptureDecoySystem.removeOwner(this.state, client.sessionId);
     this.state.players.delete(client.sessionId);
+    this.updateHost();
 
-    if (this.state.players.size < COMBAT_RULES.minimumPlayersToStart) {
+    if (this.state.players.size < 2) {
       this.resetToWaiting();
       return;
     }
@@ -328,27 +336,28 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   private tryStartMatch(): void {
+    const participants = [...this.state.players.entries()].filter(([, player]) => player.connected);
     if (
       this.state.phase !== GAME_PHASE.waiting ||
-      this.state.players.size < COMBAT_RULES.minimumPlayersToStart
+      participants.length < COMBAT_RULES.minimumPlayersToStart || participants.length > GAME_LIMITS.maxPlayersPerRoom
     ) {
+      if (this.state.phase === GAME_PHASE.waiting) this.state.startError = "게임 시작에는 4~8명의 참가자가 필요합니다.";
       return;
     }
 
-    const initialZombie = this.state.players.entries().next().value;
-    if (!initialZombie) {
-      return;
-    }
-
+    let assignments: ReturnType<typeof assignCharacters>;
     try {
+      assignments = assignCharacters(participants.map(([id]) => id));
       this.fossilHideSystem.prepareForMatch();
       this.state.mapConfigError = "";
+      this.state.startError = "";
     } catch (error) {
-      this.state.mapConfigError = error instanceof Error ? error.message : "Invalid map hide spot configuration";
+      this.state.startError = error instanceof Error ? error.message : "캐릭터 배정 또는 맵 설정을 확인해 주세요.";
       return;
     }
 
-    const [sessionId, player] = initialZombie;
+    const sessionId = [...assignments.entries()].find(([, character]) => SPECIAL_ZOMBIE_CHARACTER_IDS.includes(character as typeof SPECIAL_ZOMBIE_CHARACTER_IDS[number]))![0];
+    const player = this.state.players.get(sessionId)!;
     this.sculptureDecoySystem.clear(this.state);
     this.vomitSystem.clear(this.state);
     this.graduateTrackingSystem.clear();
@@ -364,10 +373,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       this.sculptureDecoySystem.resetPlayer(candidate);
       candidate.role =
         candidateSessionId === sessionId ? PLAYER_ROLE.zombie : PLAYER_ROLE.human;
-      candidate.characterId =
-        candidateSessionId === sessionId
-          ? pickInitialZombieCharacter(Math.random())
-          : pickRandomHumanCharacter(Math.random());
+      candidate.characterId = assignments.get(candidateSessionId) ?? CHARACTER_IDS.normalHuman;
+      candidate.attackLockedUntil = 0; candidate.nextAttackAt = 0; candidate.lastBasicAttackAt = 0; candidate.stunnedUntil = 0;
     });
     player.role = PLAYER_ROLE.zombie;
     player.attackLockedUntil = 0;
@@ -376,6 +383,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = sessionId;
     this.state.winner = MATCH_WINNER.none;
     this.state.phase = GAME_PHASE.playing;
+    this.state.matchStartedAt = Date.now();
+    this.state.matchParticipantCount = participants.length;
     this.state.players.forEach((_candidate, id) => this.computerRewindSystem.record(this.state, id, Date.now()));
   }
 
@@ -384,6 +393,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.winner = MATCH_WINNER.none;
     this.state.initialZombieSessionId = "";
     this.state.mapConfigError = "";
+    this.state.startError = "";
+    this.state.matchStartedAt = 0;
+    this.state.matchParticipantCount = 0;
     this.fossilHideSystem.clear();
     this.computerRewindSystem.clear(this.state);
     this.engineeringTrapSystem.clear(this.state);
@@ -424,6 +436,10 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     if (!joiningClient.view) {
       this.syncClientView(joiningClient);
     }
+  }
+
+  private updateHost(): void {
+    this.state.hostSessionId = [...this.state.players.entries()].find(([, p]) => p.connected)?.[0] ?? "";
   }
 
   private syncClientView(client: Client): void {

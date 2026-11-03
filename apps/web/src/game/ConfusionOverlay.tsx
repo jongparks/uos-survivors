@@ -6,7 +6,7 @@ export function ConfusionOverlay({ room }: { room: ConnectedGameRoom }) {
   const [remaining, setRemaining] = useState(0);
   useEffect(() => {
     const refresh = () => {
-      const player = room.state.players.get(room.sessionId);
+      const player = room.state.players?.get(room.sessionId);
       setRemaining(room.state.phase === GAME_PHASE.playing && player?.role === PLAYER_ROLE.zombie
         ? Math.max(0, player.confusionEndsAt - Date.now()) : 0);
     };

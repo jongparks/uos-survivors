@@ -59,6 +59,7 @@ export class MultiplayerScene extends Phaser.Scene {
   private movementInput?: InputHandle<MovementInput>;
   private predict?: Predict;
   private matchStatusText?: Phaser.GameObjects.Text;
+  private controlsText?: Phaser.GameObjects.Text;
   private roleStatusText?: Phaser.GameObjects.Text;
   private hidePromptText?: Phaser.GameObjects.Text;
   private readonly fossilHideSpotMarkers = new Map<string, FossilHideSpotMarker>();
@@ -138,8 +139,8 @@ export class MultiplayerScene extends Phaser.Scene {
     );
     this.room.send(FOSSIL_MESSAGES.requestHideSpots);
 
-    this.add
-      .text(20, 18, `ROOM ${this.room.roomId}  ·  ARROWS MOVE  ·  SHIFT ABILITY  ·  SPACE INTERACT / ATTACK`, {
+    this.controlsText = this.add
+      .text(20, 18, `ROOM ${this.room.roomId}  ·  ARROWS MOVE  ·  SPACE INTERACT / ATTACK`, {
         color: "#bfffe1",
         fontFamily: "monospace",
         fontSize: "14px",
@@ -344,14 +345,15 @@ export class MultiplayerScene extends Phaser.Scene {
   private updateLocalHud(player: PlayerState): void {
     const phaseLabel =
       this.room.state.phase === GAME_PHASE.waiting
-        ? "WAITING · NEED 2 PLAYERS"
+        ? "WAITING · NEED 4–8 PLAYERS · HOST START"
         : this.room.state.phase === GAME_PHASE.finished
           ? "MATCH FINISHED · ZOMBIE WIN"
           : "MATCH ACTIVE · INFECTION SPREADING";
     const isZombie = player.role === PLAYER_ROLE.zombie;
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
     const characterLabel =
-      player.characterId === CHARACTER_IDS.philosophyStudent ? "철학도 / PHILOSOPHY"
+      player.characterId === CHARACTER_IDS.normalHuman ? "시대생 / UOS STUDENT"
+        : player.characterId === CHARACTER_IDS.philosophyStudent ? "철학도 / PHILOSOPHY"
         : player.characterId === CHARACTER_IDS.computerStudent ? "컴과생 / COMPUTER SCIENCE"
         : player.characterId === CHARACTER_IDS.engineeringStudent ? "공대생 / ENGINEERING"
         : player.characterId === CHARACTER_IDS.sportsStudent
@@ -364,6 +366,8 @@ export class MultiplayerScene extends Phaser.Scene {
     const attackLockSeconds = Math.max(0, player.attackLockedUntil - Date.now()) / 1_000;
     const stunSeconds = Math.max(0, player.stunnedUntil - Date.now()) / 1_000;
     const attackCooldownSeconds = Math.max(0, player.nextAttackAt - Date.now()) / 1_000;
+    const hasAbility = !!player.characterId && player.characterId !== CHARACTER_IDS.normalHuman && player.characterId !== CHARACTER_IDS.normalZombie;
+    this.controlsText?.setText(`ROOM ${this.room.roomId} · ARROWS MOVE${hasAbility ? " · SHIFT ABILITY" : ""} · SPACE ${isZombie ? "ATTACK" : "INTERACT"}`);
     const basicAttackLabel = attackCooldownSeconds > 0
       ? `기본공격 · ${attackCooldownSeconds.toFixed(1)}초`
       : "[SPACE] 기본공격";

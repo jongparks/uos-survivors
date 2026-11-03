@@ -257,6 +257,18 @@ h1 {
   width: 100%;
 }
 
+.match-panel {
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  border: 1px solid #426750;
+  border-radius: 12px;
+  background: #10231d;
+  color: #dbf3e4;
+}
+.match-panel p { margin: 8px 0; }
+.match-panel button { padding: 8px 14px; cursor: pointer; }
+.match-panel button:disabled { opacity: 0.45; cursor: default; }
+
 .game-canvas canvas {
   display: block;
 }
