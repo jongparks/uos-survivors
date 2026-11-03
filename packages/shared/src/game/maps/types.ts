@@ -15,6 +15,8 @@ export interface GameMapDefinition {
   protectedPoints: readonly MapPoint[];
   collisionTiles?: readonly (readonly number[])[];
   source?: string;
+  /** Uniform scale of visual details relative to the authored artwork. */
+  artScale?: number;
 }
 export function pointInPolygon(p: MapPoint, points: readonly MapPoint[]): boolean {
   let inside = false;

@@ -8,10 +8,14 @@ import { ComputerRewindSystem } from "./computerRewindSystem.js";
 describe("campus map integration", () => {
   it("scales collision, geometry, spawn, gate and hide coordinates together", () => {
     const map = getGameMap("MAP_UOS_CAMPUS_V2"), scaled = scaleGameMap(map, 2, "SCALED");
-    expect(scaled.worldWidth).toBe(6240); expect(scaled.tileSize).toBe(64);
+    expect(scaled.worldWidth).toBe(map.worldWidth * 2); expect(scaled.tileSize).toBe(64);
     expect(scaled.spawns[0]!.x).toBe(map.spawns[0]!.x * 2);
     expect(scaled.gates[0]!.interactionRadius).toBe(map.gates[0]!.interactionRadius * 2);
     expect(getMapTiles(scaled)).toEqual(getMapTiles(map));
+    expect(map.worldWidth).toBe(5616); expect(map.worldHeight).toBe(3024);
+    expect(map.tileSize).toBe(32); expect(map.artScale).toBe(1.8);
+    expect(map.gates.every(g => g.interactionRadius === 48)).toBe(true);
+    expect(map.hideSpots.every(h => h.interactionRadius === 40)).toBe(true);
   });
   it("uses 32px tiles for dash and projectile abilities, instead of test-map constants", () => {
     const state = new GameState(); state.mapId = "MAP_UOS_CAMPUS_V2"; state.phase = GAME_PHASE.playing;

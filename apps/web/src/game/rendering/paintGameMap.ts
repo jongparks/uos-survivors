@@ -1,4 +1,4 @@
-import { getMapTiles, pointInPolygon, TILE_INDEX, type GameMapDefinition, type MapPoint, type StaticMapObject } from "@uos-survivors/shared";
+import { getMapTiles, pointInPolygon, scaleGameMap, TILE_INDEX, type GameMapDefinition, type MapPoint, type StaticMapObject } from "@uos-survivors/shared";
 import { CAMPUS_BUILDING_APPEARANCE, DEFAULT_BUILDING_APPEARANCE, type BuildingAppearance } from "./campusAppearance";
 
 type Ctx = CanvasRenderingContext2D;
@@ -112,6 +112,16 @@ function building(c: Ctx, o: StaticMapObject) {
 
 /** Static art only. Collision always comes from the shared map definition. */
 export function paintGameMap(c: Ctx, map: GameMapDefinition): void {
+  const scale = map.artScale ?? 1;
+  c.save();
+  c.scale(scale, scale);
+  try {
+    paintAuthoredMap(c, scale === 1 ? map : { ...scaleGameMap(map, 1 / scale), tileSize: map.tileSize });
+  } finally {
+    c.restore();
+  }
+}
+function paintAuthoredMap(c: Ctx, map: GameMapDefinition): void {
   const rng = random();
   c.fillStyle = "#32493e"; c.fillRect(0, 0, map.worldWidth, map.worldHeight);
   if (map.collisionTiles) {

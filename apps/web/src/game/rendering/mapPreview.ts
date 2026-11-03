@@ -12,7 +12,8 @@ const crops: Record<string, readonly [number, number, number, number]> = {
   west: [280, 630, 1050, 980], center: [880, 360, 1220, 730], east: [1810, 340, 1100, 850],
 };
 function show(key: string) {
-  const [x, y, w, h] = crops[key]!; output.width = w; output.height = h;
+  const scale = key === "all" ? 1 : CAMPUS_MAP.artScale ?? 1;
+  const [x, y, w, h] = crops[key]!.map(v => v * scale) as [number, number, number, number]; output.width = w; output.height = h;
   output.getContext("2d")!.drawImage(source, x, y, w, h, 0, 0, w, h);
   document.querySelectorAll<HTMLButtonElement>("[data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === key)));
 }

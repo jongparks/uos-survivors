@@ -1,4 +1,5 @@
 import { pointInPolygon, type GameMapDefinition, type MapPoint, type StaticMapObject } from "./types.js";
+import { scaleGameMap } from "./scale.js";
 
 // Relative positions traced from the official outdoor guide (not a collision
 // image). Footprints/path widths are intentionally reconstructed for play.
@@ -69,4 +70,13 @@ for (let y = 160; y < height - 64; y += 112) for (let x = 320; x < width - 100; 
   if ([...spawns, ...gatePoints, ...hidePositions].some(q => Math.hypot(q.x - p.x - 32, q.y - p.y - 32) < 110)) continue;
   trees.push({ id: `garden-tree-${trees.length}`, name: "", kind: "tree", ...p, width: 64, height: 64 });
 }
-export const CAMPUS_MAP: GameMapDefinition = { ...campus, objects: [...objects, ...trees] };
+const authoredCampus: GameMapDefinition = { ...campus, objects: [...objects, ...trees] };
+const enlargedCampus = scaleGameMap(authoredCampus, 1.8);
+export const CAMPUS_MAP: GameMapDefinition = {
+  ...enlargedCampus,
+  // Enlarge geography and artwork only. Ability ranges still use 32px tiles,
+  // and interactions retain their existing reach in player-space pixels.
+  tileSize: authoredCampus.tileSize,
+  gates: enlargedCampus.gates.map((g, i) => ({ ...g, interactionRadius: authoredCampus.gates[i]!.interactionRadius })),
+  hideSpots: enlargedCampus.hideSpots.map((h, i) => ({ ...h, interactionRadius: authoredCampus.hideSpots[i]!.interactionRadius })),
+};
