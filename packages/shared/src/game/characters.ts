@@ -3,6 +3,7 @@ import { CONTROL_BINDINGS } from "./controls.js";
 export const CHARACTER_IDS = {
   fossil: "HUMAN_001",
   sportsStudent: "HUMAN_002",
+  sculptureStudent: "HUMAN_003",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -10,6 +11,7 @@ export const UNASSIGNED_CHARACTER_ID = "";
 export const HUMAN_CHARACTER_IDS = [
   CHARACTER_IDS.fossil,
   CHARACTER_IDS.sportsStudent,
+  CHARACTER_IDS.sculptureStudent,
 ] as const satisfies readonly CharacterId[];
 
 export function isCharacterId(value: unknown): value is CharacterId {
@@ -79,6 +81,26 @@ export function getSportsSpeedMultiplier(sprintState: string): number {
   }
   return 1;
 }
+
+export const SCULPTURE_STUDENT_CONFIG = {
+  characterId: CHARACTER_IDS.sculptureStudent,
+  characterName: "조각학도",
+  characterNameEn: "Sculpture Student",
+  skillId: "SCULPTURE_DECOY",
+  skillName: "살아있는 조각상",
+  decoyDurationMs: 5_000,
+  movementRecordDurationMs: 5_000,
+  decoySpeedMultiplier: 0.85,
+  decoyMaxHits: 1,
+  zombieStunDurationMs: 1_500,
+  cooldownMs: 30_000,
+  activationKey: CONTROL_BINDINGS.ability,
+  maxActiveDecoys: 1,
+  allowManualControl: false,
+  allowObjectiveInteraction: false,
+  allowItemInteraction: false,
+  allowInfection: false,
+} as const;
 
 export interface FossilHideSpotView {
   id: string;

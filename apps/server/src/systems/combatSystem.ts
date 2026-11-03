@@ -7,7 +7,17 @@ import {
   type PlayerState,
 } from "@uos-survivors/shared";
 
-function isInsideAttackCone(attacker: PlayerState, target: PlayerState): boolean {
+export interface CombatTarget {
+  type: "human" | "decoy";
+  id: string;
+}
+
+interface TargetPosition {
+  x: number;
+  y: number;
+}
+
+function isInsideAttackCone(attacker: PlayerState, target: TargetPosition): boolean {
   const deltaX = target.x - attacker.x;
   const deltaY = target.y - attacker.y;
   const distance = Math.hypot(deltaX, deltaY);
@@ -31,14 +41,14 @@ function isInsideAttackCone(attacker: PlayerState, target: PlayerState): boolean
 export function findZombieAttackTarget(
   state: GameState,
   attackerSessionId: string,
-): string | null {
+): CombatTarget | null {
   const attacker = state.players.get(attackerSessionId);
 
   if (!attacker) {
     return null;
   }
 
-  let closestTarget: string | null = null;
+  let closestTarget: CombatTarget | null = null;
   let closestDistance = Number.POSITIVE_INFINITY;
 
   state.players.forEach((target, targetSessionId) => {
@@ -54,7 +64,18 @@ export function findZombieAttackTarget(
 
     const distance = Math.hypot(target.x - attacker.x, target.y - attacker.y);
     if (distance < closestDistance) {
-      closestTarget = targetSessionId;
+      closestTarget = { type: "human", id: targetSessionId };
+      closestDistance = distance;
+    }
+  });
+
+  state.decoys.forEach((decoy, decoyId) => {
+    if (!isInsideAttackCone(attacker, decoy)) {
+      return;
+    }
+    const distance = Math.hypot(decoy.x - attacker.x, decoy.y - attacker.y);
+    if (distance < closestDistance) {
+      closestTarget = { type: "decoy", id: decoyId };
       closestDistance = distance;
     }
   });
@@ -66,7 +87,7 @@ export function resolveZombieAttack(
   state: GameState,
   attackerSessionId: string,
   now: number,
-): string | null {
+): CombatTarget | null {
   const attacker = state.players.get(attackerSessionId);
 
   if (
@@ -74,7 +95,8 @@ export function resolveZombieAttack(
     !attacker?.connected ||
     attacker.role !== PLAYER_ROLE.zombie ||
     now < attacker.nextAttackAt ||
-    now < attacker.attackLockedUntil
+    now < attacker.attackLockedUntil ||
+    now < attacker.stunnedUntil
   ) {
     return null;
   }

@@ -8,6 +8,7 @@ import {
   PLAYER_ACTIVITY,
   PLAYER_ROLE,
   PlayerState,
+  SculptureDecoyState,
   SPRINT_STATE,
 } from "@uos-survivors/shared";
 
@@ -38,7 +39,10 @@ describe("zombie combat", () => {
     addPlayer(state, "front", PLAYER_ROLE.human, 140, 100);
     addPlayer(state, "behind", PLAYER_ROLE.human, 70, 100);
 
-    expect(findZombieAttackTarget(state, "zombie")).toBe("front");
+    expect(findZombieAttackTarget(state, "zombie")).toEqual({
+      type: "human",
+      id: "front",
+    });
   });
 
   it("applies an attack cooldown even when the attack misses", () => {
@@ -61,6 +65,25 @@ describe("zombie combat", () => {
     expect(findZombieAttackTarget(state, "zombie")).toBeNull();
   });
 
+  it("targets the closest decoy before a human and rejects attacks while stunned", () => {
+    const state = new GameState();
+    state.phase = GAME_PHASE.playing;
+    const zombie = addPlayer(state, "zombie", PLAYER_ROLE.zombie, 100, 100);
+    zombie.facingX = 1;
+    addPlayer(state, "human", PLAYER_ROLE.human, 150, 100);
+    const decoy = new SculptureDecoyState();
+    decoy.x = 130;
+    decoy.y = 100;
+    state.decoys.set("decoy", decoy);
+
+    expect(findZombieAttackTarget(state, "zombie")).toEqual({
+      type: "decoy",
+      id: "decoy",
+    });
+    zombie.stunnedUntil = 2_500;
+    expect(resolveZombieAttack(state, "zombie", 2_000)).toBeNull();
+  });
+
   it("infects immediately, locks attacks for 1.5 seconds, and finishes the match", () => {
     const state = new GameState();
     state.phase = GAME_PHASE.playing;
@@ -70,11 +93,15 @@ describe("zombie combat", () => {
     human.sprintState = SPRINT_STATE.sprinting;
     human.sprintEndsAt = 8_000;
     human.cooldownEndsAt = 27_000;
+    human.activeDecoyId = "decoy-before-infection";
+    human.decoyCooldownEndsAt = 32_000;
 
     expect(infectHuman(state, "human", 2_000)).toBe(true);
     expect(human.role).toBe(PLAYER_ROLE.zombie);
     expect(human.sprintState).toBe(SPRINT_STATE.ready);
     expect(human.cooldownEndsAt).toBe(0);
+    expect(human.activeDecoyId).toBe("");
+    expect(human.decoyCooldownEndsAt).toBe(0);
     expect(human.attackLockedUntil).toBe(2_000 + COMBAT_RULES.infectionAttackLockMs);
     expect(finishIfAllHumansInfected(state)).toBe(true);
     expect(state.phase).toBe(GAME_PHASE.finished);

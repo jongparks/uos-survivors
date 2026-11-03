@@ -27,6 +27,9 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
   player.sprintEndsAt = 0;
   player.exhaustionEndsAt = 0;
   player.cooldownEndsAt = 0;
+  player.activeDecoyId = "";
+  player.decoyCooldownEndsAt = 0;
+  player.stunnedUntil = 0;
   player.attackLockedUntil = now + COMBAT_RULES.infectionAttackLockMs;
   player.nextAttackAt = player.attackLockedUntil;
   return true;

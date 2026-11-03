@@ -11,6 +11,7 @@ import {
   PLAYER_SPEED,
   PLAYER_ACTIVITY,
   PLAYER_ROLE,
+  SCULPTURE_STUDENT_CONFIG,
   SPORTS_STUDENT_CONFIG,
   SPRINT_STATE,
   TEST_MAP_DATA,
@@ -25,6 +26,7 @@ import {
 } from "@uos-survivors/shared";
 
 import type { ConnectedGameRoom } from "../../network/useGameRoom";
+import { NetworkDecoyView } from "../entities/NetworkDecoyView";
 import { NetworkPlayerView } from "../entities/NetworkPlayerView";
 import { KeyboardInput } from "../input/KeyboardInput";
 import { createGeneratedTextures, TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
@@ -39,6 +41,7 @@ interface FossilHideSpotMarker {
 export class MultiplayerScene extends Phaser.Scene {
   private readonly room: ConnectedGameRoom;
   private readonly playerViews = new Map<string, NetworkPlayerView>();
+  private readonly decoyViews = new Map<string, NetworkDecoyView>();
   private readonly callbackDisposers: Array<() => void> = [];
   private keyboardInput?: KeyboardInput;
   private movementInput?: InputHandle<MovementInput>;
@@ -70,6 +73,12 @@ export class MultiplayerScene extends Phaser.Scene {
       delay: NETWORK_RATE.interpolationDelayMs,
       snap: TILE_SIZE * 2,
     });
+    this.predict.attachAll("decoys", {
+      mode: "lerp",
+      fields: ["x", "y"],
+      delay: NETWORK_RATE.interpolationDelayMs,
+      snap: TILE_SIZE * 2,
+    });
 
     const callbacks = Callbacks.get(this.room);
     this.callbackDisposers.push(
@@ -78,6 +87,15 @@ export class MultiplayerScene extends Phaser.Scene {
       }),
       callbacks.onRemove("players", (_player, sessionId) => {
         this.removePlayer(sessionId);
+      }),
+      callbacks.onAdd("decoys", (decoy, decoyId) => {
+        if (!this.disposed && !this.decoyViews.has(decoyId)) {
+          this.decoyViews.set(decoyId, new NetworkDecoyView(this, decoy));
+        }
+      }),
+      callbacks.onRemove("decoys", (_decoy, decoyId) => {
+        this.decoyViews.get(decoyId)?.destroy();
+        this.decoyViews.delete(decoyId);
       }),
       this.room.onMessage<FossilHideSpotView[]>(FOSSIL_MESSAGES.hideSpots, (spots) => {
         this.replaceFossilHideSpotMarkers(spots);
@@ -154,15 +172,18 @@ export class MultiplayerScene extends Phaser.Scene {
         const controls = this.keyboardInput.readControls();
         const localPlayer = this.room.state.players.get(this.room.sessionId);
         const isHidden = localPlayer?.activity === PLAYER_ACTIVITY.hidden;
-        this.movementInput.data.moveX = (isHidden ? 0 : controls.moveX) as -1 | 0 | 1;
-        this.movementInput.data.moveY = (isHidden ? 0 : controls.moveY) as -1 | 0 | 1;
-        this.movementInput.data.interact = controls.interact;
-        this.movementInput.data.useSkill = isHidden ? false : controls.useSkill;
+        const isStunned = (localPlayer?.stunnedUntil ?? 0) > Date.now();
+        const actionsLocked = isHidden || isStunned;
+        this.movementInput.data.moveX = (actionsLocked ? 0 : controls.moveX) as -1 | 0 | 1;
+        this.movementInput.data.moveY = (actionsLocked ? 0 : controls.moveY) as -1 | 0 | 1;
+        this.movementInput.data.interact = actionsLocked ? false : controls.interact;
+        this.movementInput.data.useSkill = actionsLocked ? false : controls.useSkill;
         this.movementInput.send();
       }
     }
 
     this.renderPlayers();
+    this.renderDecoys();
   }
 
   private createMap(): void {
@@ -217,7 +238,7 @@ export class MultiplayerScene extends Phaser.Scene {
           applyMovementWithTestMapCollision(
             state,
             command,
-            PLAYER_SPEED * speedMultiplier,
+            Date.now() < state.stunnedUntil ? 0 : PLAYER_SPEED * speedMultiplier,
             context.dt,
           );
         },
@@ -251,6 +272,21 @@ export class MultiplayerScene extends Phaser.Scene {
     });
   }
 
+  private renderDecoys(): void {
+    if (!this.predict) {
+      return;
+    }
+    this.decoyViews.forEach((view, decoyId) => {
+      const decoy = this.room.state.decoys.get(decoyId);
+      if (decoy) {
+        view.applyRenderState(
+          this.predict?.value(decoy, "x") ?? decoy.x,
+          this.predict?.value(decoy, "y") ?? decoy.y,
+        );
+      }
+    });
+  }
+
   private updateLocalHud(player: PlayerState): void {
     const phaseLabel =
       this.room.state.phase === GAME_PHASE.waiting
@@ -263,10 +299,13 @@ export class MultiplayerScene extends Phaser.Scene {
     const characterLabel =
       player.characterId === CHARACTER_IDS.sportsStudent
         ? "스과생 / SPORTS SCIENCE"
+        : player.characterId === CHARACTER_IDS.sculptureStudent
+          ? "조각학도 / SCULPTURE"
         : player.characterId === CHARACTER_IDS.fossil
           ? "화석 / FOSSIL"
           : "CHARACTER ASSIGNMENT PENDING";
     const attackLockSeconds = Math.max(0, player.attackLockedUntil - Date.now()) / 1_000;
+    const stunSeconds = Math.max(0, player.stunnedUntil - Date.now()) / 1_000;
 
     this.matchStatusText?.setText(phaseLabel);
     this.matchStatusText?.setColor(
@@ -279,9 +318,11 @@ export class MultiplayerScene extends Phaser.Scene {
         ? `ROLE · HUMAN · ${characterLabel}`
         : this.room.state.phase === GAME_PHASE.finished
           ? "ROLE · ZOMBIE · MATCH OVER"
-          : attackLockSeconds > 0
+          : stunSeconds > 0
+            ? `ROLE · ZOMBIE · STUNNED ${stunSeconds.toFixed(1)}s`
+            : attackLockSeconds > 0
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
-            : "ROLE · ZOMBIE · SPACE TO ATTACK",
+            : "ROLE · ZOMBIE · SHIFT TO ATTACK",
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
@@ -305,6 +346,20 @@ export class MultiplayerScene extends Phaser.Scene {
             : player.sprintState === SPRINT_STATE.cooldown
               ? `${SPORTS_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil(Math.max(0, player.cooldownEndsAt - now) / 1_000)}초`
               : `[SHIFT] ${SPORTS_STUDENT_CONFIG.skillName}`;
+      this.hidePromptText?.setText(statusText).setVisible(true);
+      return;
+    }
+
+    if (player.characterId === CHARACTER_IDS.sculptureStudent) {
+      const now = Date.now();
+      const activeDecoy = player.activeDecoyId
+        ? this.room.state.decoys.get(player.activeDecoyId)
+        : undefined;
+      const statusText = activeDecoy
+        ? `${SCULPTURE_STUDENT_CONFIG.skillName} 활동 중 · ${(Math.max(0, activeDecoy.expiresAt - now) / 1_000).toFixed(1)}초`
+        : now < player.decoyCooldownEndsAt
+          ? `${SCULPTURE_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.decoyCooldownEndsAt - now) / 1_000)}초`
+          : `[SHIFT] ${SCULPTURE_STUDENT_CONFIG.skillName}`;
       this.hidePromptText?.setText(statusText).setVisible(true);
       return;
     }
@@ -379,6 +434,8 @@ export class MultiplayerScene extends Phaser.Scene {
     this.callbackDisposers.splice(0).forEach((dispose) => dispose());
     this.playerViews.forEach((view) => view.destroy());
     this.playerViews.clear();
+    this.decoyViews.forEach((view) => view.destroy());
+    this.decoyViews.clear();
     this.clearFossilHideSpotMarkers();
   }
 }
