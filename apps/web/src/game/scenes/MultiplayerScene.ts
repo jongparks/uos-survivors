@@ -21,6 +21,7 @@ import {
   TILE_SIZE,
   applyMovementWithTestMapCollision,
   getSportsSpeedMultiplier,
+  getPuddleSpeedMultiplier,
   type FossilHideSpotView,
   type PlayerState,
 } from "@uos-survivors/shared";
@@ -51,6 +52,7 @@ export class MultiplayerScene extends Phaser.Scene {
   private hidePromptText?: Phaser.GameObjects.Text;
   private readonly fossilHideSpotMarkers = new Map<string, FossilHideSpotMarker>();
   private disposed = false;
+  private vomitGraphics?: Phaser.GameObjects.Graphics;
 
   constructor(room: ConnectedGameRoom) {
     super("multiplayer");
@@ -60,6 +62,7 @@ export class MultiplayerScene extends Phaser.Scene {
   create(): void {
     createGeneratedTextures(this);
     this.createMap();
+    this.vomitGraphics = this.add.graphics().setDepth(7);
     this.keyboardInput = new KeyboardInput(this);
     this.movementInput = this.room.input({ type: MovementInput, mode: "reliable" });
     this.predict = Predict.get(this.room, {
@@ -184,6 +187,7 @@ export class MultiplayerScene extends Phaser.Scene {
 
     this.renderPlayers();
     this.renderDecoys();
+    this.renderVomit();
   }
 
   private createMap(): void {
@@ -238,7 +242,7 @@ export class MultiplayerScene extends Phaser.Scene {
           applyMovementWithTestMapCollision(
             state,
             command,
-            Date.now() < state.stunnedUntil ? 0 : PLAYER_SPEED * speedMultiplier,
+            Date.now() < state.stunnedUntil ? 0 : PLAYER_SPEED * speedMultiplier * getPuddleSpeedMultiplier(this.room.state, state, Date.now()),
             context.dt,
           );
         },
@@ -322,12 +326,21 @@ export class MultiplayerScene extends Phaser.Scene {
             ? `ROLE · ZOMBIE · STUNNED ${stunSeconds.toFixed(1)}s`
             : attackLockSeconds > 0
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
-            : "ROLE · ZOMBIE · SHIFT TO ATTACK",
+            : "ROLE · ZOMBIE · 만취생",
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.drunkenZombie && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(player.vomitCastEndsAt > now
+        ? "숙취 폭발 준비 중..."
+        : player.vomitCooldownEndsAt > now
+          ? `숙취 폭발 · 재사용까지 ${Math.ceil((player.vomitCooldownEndsAt - now) / 1000)}초`
+          : "[SHIFT] 숙취 폭발").setVisible(true);
+      return;
+    }
     if (
       player.role !== PLAYER_ROLE.human ||
       this.room.state.phase !== GAME_PHASE.playing
@@ -403,6 +416,27 @@ export class MultiplayerScene extends Phaser.Scene {
     }
   }
 
+  private renderVomit(): void {
+    const g = this.vomitGraphics;
+    if (!g) return;
+    g.clear();
+    this.room.state.vomitPuddles.forEach(p => {
+      g.fillStyle(0x79a62a, 0.32).fillCircle(p.x, p.y, p.radius);
+      g.lineStyle(2, 0xb4d950, 0.65).strokeCircle(p.x, p.y, p.radius);
+    });
+    this.room.state.vomitProjectiles.forEach(p => {
+      g.fillStyle(0xc3ed51, 1).fillCircle(p.x, p.y, 4);
+      g.lineStyle(3, 0x82ac29, 0.7).lineBetween(p.x, p.y, p.x - p.directionX * 12, p.y - p.directionY * 12);
+    });
+    this.room.state.players.forEach(p => {
+      if (p.vomitCastEndsAt > Date.now()) {
+        const radius = 18 + Math.sin(this.time.now / 45) * 3;
+        g.lineStyle(3, 0xb4e74d, 0.9).strokeCircle(p.x, p.y, radius);
+        g.lineBetween(p.x, p.y, p.x + p.facingX * 32, p.y + p.facingY * 32);
+      }
+    });
+  }
+
   private clearFossilHideSpotMarkers(): void {
     this.fossilHideSpotMarkers.forEach(({ ring, dot, tween }) => {
       tween.stop();
@@ -431,6 +465,7 @@ export class MultiplayerScene extends Phaser.Scene {
       this.movementInput.send();
     }
     this.predict?.dispose();
+    this.vomitGraphics?.destroy();
     this.callbackDisposers.splice(0).forEach((dispose) => dispose());
     this.playerViews.forEach((view) => view.destroy());
     this.playerViews.clear();

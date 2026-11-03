@@ -31,6 +31,8 @@ export const PlayerState = schema(
     nextAttackAt: t.float64().default(0),
     attackLockedUntil: t.float64().default(0),
     stunnedUntil: t.float64().default(0),
+    vomitCastEndsAt: t.float64().default(0),
+    vomitCooldownEndsAt: t.float64().default(0),
   },
   "PlayerState",
 );
@@ -50,6 +52,15 @@ export const SculptureDecoyState = schema(
 );
 export type SculptureDecoyState = SchemaType<typeof SculptureDecoyState>;
 
+export const VomitProjectileState = schema({
+  ownerSessionId: t.string(), x: t.float32(), y: t.float32(),
+  directionX: t.float32(), directionY: t.float32(), remainingRange: t.float32(),
+}, "VomitProjectileState");
+export const VomitPuddleState = schema({
+  ownerSessionId: t.string(), x: t.float32(), y: t.float32(),
+  radius: t.float32(), createdAt: t.float64(), expiresAt: t.float64(),
+}, "VomitPuddleState");
+
 export const GameState = schema(
   {
     roomCode: t.string().default(""),
@@ -60,6 +71,8 @@ export const GameState = schema(
     initialZombieSessionId: t.string().default(""),
     players: t.map(PlayerState).view(),
     decoys: t.map(SculptureDecoyState),
+    vomitProjectiles: t.map(VomitProjectileState),
+    vomitPuddles: t.map(VomitPuddleState),
   },
   "GameState",
 );

@@ -16,7 +16,7 @@ import {
   PLAYER_ROLE,
   ROOM_NAMES,
   ROOM_VISIBILITY,
-  UNASSIGNED_CHARACTER_ID,
+  CHARACTER_IDS,
 } from "@uos-survivors/shared";
 
 const webDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -143,7 +143,7 @@ try {
 
   if (
     publicHostRoom.state.players.get(publicHostRoom.sessionId)?.characterId !==
-      UNASSIGNED_CHARACTER_ID ||
+      CHARACTER_IDS.drunkenZombie ||
     Array.from(publicHostRoom.state.players.values()).some(
       (player) =>
         player.role === PLAYER_ROLE.human &&
@@ -231,7 +231,7 @@ try {
   const infectedPrivateGuest = privateHostRoom.state.players.get(invitedPrivateGuest.sessionId);
   await waitUntil(
     () => infectedPrivateGuest?.role === PLAYER_ROLE.zombie,
-    "Zombie attack did not immediately infect the human",
+    "Vomit projectile did not infect the human after its cast",
   );
 
   if (

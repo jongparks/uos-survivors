@@ -5,7 +5,7 @@ import {
   PLAYER_ACTIVITY,
   PLAYER_ROLE,
   SPRINT_STATE,
-  UNASSIGNED_CHARACTER_ID,
+  CHARACTER_IDS,
   type GameState,
 } from "@uos-survivors/shared";
 
@@ -17,7 +17,9 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
   }
 
   player.role = PLAYER_ROLE.zombie;
-  player.characterId = UNASSIGNED_CHARACTER_ID;
+  player.characterId = CHARACTER_IDS.drunkenZombie;
+  player.vomitCastEndsAt = 0;
+  player.vomitCooldownEndsAt = 0;
   player.activity = PLAYER_ACTIVITY.normal;
   player.activeHideSpotId = "";
   player.hideStartedAt = 0;

@@ -4,6 +4,7 @@ export const CHARACTER_IDS = {
   fossil: "HUMAN_001",
   sportsStudent: "HUMAN_002",
   sculptureStudent: "HUMAN_003",
+  drunkenZombie: "ZOMBIE_001",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -108,3 +109,17 @@ export interface FossilHideSpotView {
   y: number;
   interactionRadius: number;
 }
+
+export const DRUNKEN_ZOMBIE_CONFIG = {
+  characterId: CHARACTER_IDS.drunkenZombie,
+  skillId: "VOMIT_PROJECTILE",
+  skillName: "숙취 폭발",
+  castTimeMs: 500,
+  cooldownMs: 30_000,
+  projectileRangeTiles: 5,
+  projectileSpeedTilesPerSecond: 8,
+  projectileRadiusMultiplier: 0.25,
+  puddleDurationMs: 4_000,
+  puddleRadiusTiles: 1,
+  puddleSpeedMultiplier: 0.75,
+} as const;
