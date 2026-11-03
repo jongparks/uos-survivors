@@ -7,6 +7,7 @@ import {
   CHARACTER_IDS, DANGER_MESSAGES, GAME_PHASE, GRADUATE_TRACKING_MESSAGE,
   LIBRARY_PLACEMENT_FAILED_MESSAGE, MATCH_MESSAGES, MovementInput, NETWORK_RATE,
   PLAYER_SPEED, PLAYER_ROLE, ROOM_NAMES, ROOM_VISIBILITY, validateAssignments,
+  ASSIGNMENT_MESSAGES,
   TEST_MAP_WIDTH, TEST_MAP_HEIGHT, TILE_INDEX, TILE_SIZE, getTestMapTile, tileToWorld,
 } from "@uos-survivors/shared";
 
@@ -168,6 +169,30 @@ try {
     if (nearVictim) break;
   }
   if (!nearVictim) throw new Error("Zombie did not reach the infection test target");
+  if (attacker.characterId === CHARACTER_IDS.professor) {
+    const missionUpdates = [];
+    let leakedAnswers = 0;
+    restored.onMessage(ASSIGNMENT_MESSAGES.state, view => { missionUpdates.push(view); });
+    for (const observer of rooms.filter(room => room.roomId === privateHost.roomId && room.sessionId !== session)) {
+      observer.onMessage(ASSIGNMENT_MESSAGES.state, view => { if (view.sequence.length) leakedAnswers++; });
+    }
+    restored.send(ASSIGNMENT_MESSAGES.subscribe);
+    attackInput.data.moveX = 0; attackInput.data.moveY = 0;
+    attackInput.data.useSkill = true; attackInput.send();
+    await waitUntil(() => missionUpdates.some(view => view.event === "started"), "Professor mission did not reach its target");
+    const challenge = missionUpdates.find(view => view.event === "started");
+    const before = { x: victim.x, y: victim.y };
+    const lockedInput = restored.input({ type: MovementInput, mode: "reliable" });
+    lockedInput.data.moveX = 1; lockedInput.data.useSkill = true; lockedInput.data.interact = true; lockedInput.send();
+    await delay(100);
+    if (victim.x !== before.x || victim.y !== before.y) throw new Error("Mission lock allowed ordinary movement");
+    for (const direction of challenge.sequence) restored.send(ASSIGNMENT_MESSAGES.input, { id: challenge.id, direction });
+    await waitUntil(() => missionUpdates.some(view => view.event === "completed"), "Server did not validate mission completion");
+    if (leakedAnswers || attacker.attackLockedUntil <= Date.now()) throw new Error("Mission privacy or professor attack penalty failed");
+    lockedInput.data.moveX = 0; lockedInput.data.useSkill = false; lockedInput.data.interact = false; lockedInput.send();
+    await waitUntil(() => Date.now() >= attacker.attackLockedUntil, "Professor attack lock never expired");
+    attackInput.data.useSkill = false;
+  }
   attackInput.data.moveX = Math.sign(victim.x - attacker.x);
   attackInput.data.moveY = Math.sign(victim.y - attacker.y);
   attackInput.data.interact = true; attackInput.send();

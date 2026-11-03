@@ -1,6 +1,7 @@
 import { CHARACTER_IDS as C } from "./characters.js";
 
 export const CHARACTER_PROFILES: Readonly<Record<string, { name: string; team: "HUMAN" | "ZOMBIE"; ability: string | null; description: string }>> = {
+  [C.professor]: { name: "교수님", team: "ZOMBIE", ability: "과제 제출하세요", description: "가까운 인간에게 최대 3초 방향키 미션을 부여합니다. 사용 후 본인의 기본공격만 1초 제한됩니다." },
   [C.normalHuman]: { name: "시대생", team: "HUMAN", ability: null, description: "고유 능력 없이 이동과 상호작용으로 생존합니다. 공통 위험 감지가 적용됩니다." },
   [C.fossil]: { name: "화석", team: "HUMAN", ability: "비밀 은신처", description: "사용 가능한 은신처 근처에서 Space로 숨거나 나옵니다." },
   [C.sportsStudent]: { name: "스과생", team: "HUMAN", ability: "전력 질주", description: "6초 동안 빠르게 달린 뒤 2초간 탈진합니다." },

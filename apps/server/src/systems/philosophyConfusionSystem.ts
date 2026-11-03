@@ -7,7 +7,7 @@ export function tryActivateSocraticMethod(state: GameState, id: string, now: num
   const caster = state.players.get(id);
   if (!caster || state.phase !== GAME_PHASE.playing || !caster.connected ||
     caster.characterId !== CHARACTER_IDS.philosophyStudent || caster.role !== PLAYER_ROLE.human ||
-    caster.activity !== PLAYER_ACTIVITY.normal || now < caster.stunnedUntil || now < caster.philosophyCooldownEndsAt) return null;
+    caster.activity !== PLAYER_ACTIVITY.normal || now < caster.stunnedUntil || now < caster.assignmentLockEndsAt || now < caster.philosophyCooldownEndsAt) return null;
   let nearest: PlayerState | undefined, nearestId = "", best = (C.rangeTiles * TILE_SIZE) ** 2;
   for (const [targetId, target] of [...state.players.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     if (target.role !== PLAYER_ROLE.zombie || !target.connected || target.activity !== PLAYER_ACTIVITY.normal) continue;

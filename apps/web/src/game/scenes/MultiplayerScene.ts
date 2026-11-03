@@ -3,6 +3,10 @@ import Phaser from "phaser";
 
 import {
   CHARACTER_IDS,
+  ASSIGNMENT_MESSAGES,
+  PROFESSOR_CONFIG,
+  type AssignmentChallengeView,
+  type AssignmentDirection,
   ENGINEERING_TRAP_CONFIG,
   COMPUTER_STUDENT_CONFIG,
   PHILOSOPHY_STUDENT_CONFIG,
@@ -54,6 +58,18 @@ export class MultiplayerScene extends Phaser.Scene {
   private readonly playerViews = new Map<string, NetworkPlayerView>();
   private readonly decoyViews = new Map<string, NetworkDecoyView>();
   private readonly confusionLabels = new Map<string, Phaser.GameObjects.Text>();
+  private assignmentChallenge?: AssignmentChallengeView;
+  private assignmentPrompt?: Phaser.GameObjects.Text;
+  private readonly assignmentArrows: Phaser.GameObjects.Text[] = [];
+  private assignmentErrorUntil = 0;
+  private assignmentSuccessAt = 0;
+  private readonly handleAssignmentKey = (event: KeyboardEvent): void => {
+    const challenge = this.assignmentChallenge;
+    if (!challenge || event.repeat || Date.now() >= challenge.expiresAt) return;
+    const directions: Record<string, AssignmentDirection> = { ArrowUp: "UP", ArrowDown: "DOWN", ArrowLeft: "LEFT", ArrowRight: "RIGHT" };
+    const direction = directions[event.code];
+    if (direction) { event.preventDefault(); this.room.send(ASSIGNMENT_MESSAGES.input, { id: challenge.id, direction }); }
+  };
   private readonly callbackDisposers: Array<() => void> = [];
   private keyboardInput?: KeyboardInput;
   private movementInput?: InputHandle<MovementInput>;
@@ -93,6 +109,9 @@ export class MultiplayerScene extends Phaser.Scene {
     this.trackingGraphics = this.add.graphics().setScrollFactor(0).setDepth(90);
     this.barrierGraphics = this.add.graphics().setDepth(8);
     this.keyboardInput = new KeyboardInput(this);
+    this.input.keyboard?.on("keydown", this.handleAssignmentKey);
+    this.assignmentPrompt = this.add.text(0, 0, "", { fontFamily: "sans-serif", fontSize: "12px", color: "#f7e8af", backgroundColor: "#201b10dd", padding: { x: 5, y: 3 } }).setOrigin(0.5).setDepth(120).setVisible(false);
+    for (let i = 0; i < 4; i++) this.assignmentArrows.push(this.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "20px", fontStyle: "bold", backgroundColor: "#201b10dd", padding: { x: 3, y: 2 } }).setOrigin(0.5).setDepth(120).setVisible(false));
     this.movementInput = this.room.input({ type: MovementInput, mode: "reliable" });
     this.predict = Predict.get(this.room, {
       mode: "lerp",
@@ -114,6 +133,16 @@ export class MultiplayerScene extends Phaser.Scene {
 
     const callbacks = Callbacks.get(this.room);
     this.callbackDisposers.push(
+      this.room.onMessage<AssignmentChallengeView>(ASSIGNMENT_MESSAGES.state, challenge => {
+        if (this.disposed) return;
+        if (["completed", "expired", "cancelled"].includes(challenge.event)) {
+          this.assignmentChallenge = undefined;
+          if (challenge.event === "completed") this.assignmentSuccessAt = Date.now();
+        } else {
+          this.assignmentChallenge = challenge;
+          if (challenge.event === "failed") this.assignmentErrorUntil = Date.now() + 180;
+        }
+      }),
       this.room.onMessage(LIBRARY_PLACEMENT_FAILED_MESSAGE, () => { this.placementFailedUntil = Date.now() + 1800; }),
       this.room.onMessage<GraduateTrackingView>(GRADUATE_TRACKING_MESSAGE, view => {
         if (!this.disposed) this.tracking = view;
@@ -138,6 +167,11 @@ export class MultiplayerScene extends Phaser.Scene {
       }),
     );
     this.room.send(FOSSIL_MESSAGES.requestHideSpots);
+    this.room.send(ASSIGNMENT_MESSAGES.subscribe);
+    const reconnectAssignment = () => this.room.send(ASSIGNMENT_MESSAGES.subscribe);
+    const dropAssignment = () => { this.assignmentChallenge = undefined; };
+    this.room.onReconnect(reconnectAssignment); this.room.onDrop(dropAssignment);
+    this.callbackDisposers.push(() => this.room.onReconnect.remove(reconnectAssignment), () => this.room.onDrop.remove(dropAssignment));
 
     this.controlsText = this.add
       .text(20, 18, `ROOM ${this.room.roomId}  ·  ARROWS MOVE  ·  SPACE INTERACT / ATTACK`, {
@@ -209,7 +243,7 @@ export class MultiplayerScene extends Phaser.Scene {
         const localPlayer = this.room.state.players.get(this.room.sessionId);
         const isHidden = localPlayer?.activity === PLAYER_ACTIVITY.hidden;
         const isStunned = (localPlayer?.stunnedUntil ?? 0) > Date.now();
-        const actionsLocked = isHidden || isStunned;
+        const actionsLocked = isHidden || isStunned || (localPlayer?.assignmentLockEndsAt ?? 0) > Date.now() || (this.assignmentChallenge?.expiresAt ?? 0) > Date.now();
         this.movementInput.data.moveX = (actionsLocked ? 0 : controls.moveX) as -1 | 0 | 1;
         this.movementInput.data.moveY = (actionsLocked ? 0 : controls.moveY) as -1 | 0 | 1;
         this.movementInput.data.interact = actionsLocked ? false : controls.interact;
@@ -223,6 +257,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.renderVomit();
     this.renderTracking();
     this.renderBookBarriers();
+    this.renderAssignmentChallenge();
   }
 
   private createMap(): void {
@@ -269,7 +304,7 @@ export class MultiplayerScene extends Phaser.Scene {
         smoothMs: NETWORK_RATE.correctionSmoothMs,
         snap: TILE_SIZE * 2,
         step: (context, state, command) => {
-          if (state.trapCastEndsAt > Date.now() || state.rootedUntil > Date.now()) return;
+          if (state.assignmentLockEndsAt > Date.now() || state.trapCastEndsAt > Date.now() || state.rootedUntil > Date.now()) return;
           if (state.dashEndsAt > Date.now()) {
             const remaining = Math.max(0, TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles - Math.hypot(state.x - state.dashStartX, state.y - state.dashStartY));
             const speed = Math.min(TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles / (LATE_ZOMBIE_CONFIG.dashDurationMs / 1000), remaining / context.dt);
@@ -386,15 +421,24 @@ export class MultiplayerScene extends Phaser.Scene {
           : stunSeconds > 0
             ? `ROLE · ZOMBIE · STUNNED ${stunSeconds.toFixed(1)}s`
             : attackLockSeconds > 0
-            ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
+            ? `ROLE · ZOMBIE · [SPACE] 사용 불가 ${attackLockSeconds.toFixed(1)}s`
             : player.characterId === CHARACTER_IDS.normalZombie
               ? `ROLE · ZOMBIE · 일반 좀비 · ${basicAttackLabel}`
-              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.xmanZombie ? "엑스맨" : player.characterId === CHARACTER_IDS.lateZombie ? "지각생" : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
+              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.professor ? "교수님" : player.characterId === CHARACTER_IDS.xmanZombie ? "엑스맨" : player.characterId === CHARACTER_IDS.lateZombie ? "지각생" : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.assignmentLockEndsAt > Date.now()) {
+      this.hidePromptText?.setText("과제 제출 중 · 방향키 미션을 완료하세요").setVisible(true); return;
+    }
+    if (player.characterId === CHARACTER_IDS.professor && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(player.professorCooldownEndsAt > now
+        ? `${PROFESSOR_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.professorCooldownEndsAt - now) / 1000)}초`
+        : `[SHIFT] ${PROFESSOR_CONFIG.skillName}`).setVisible(true); return;
+    }
     if (player.characterId === CHARACTER_IDS.philosophyStudent && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(player.philosophyCooldownEndsAt > now
@@ -534,6 +578,11 @@ export class MultiplayerScene extends Phaser.Scene {
     const g = this.vomitGraphics;
     if (!g) return;
     g.clear();
+    const successAge = Date.now() - this.assignmentSuccessAt;
+    const successPlayer = this.room.state.players.get(this.room.sessionId);
+    if (successPlayer && successAge >= 0 && successAge < 250) {
+      g.lineStyle(2, 0x7ff0a0, 1 - successAge / 250).strokeCircle(successPlayer.x, successPlayer.y, 14 + successAge / 15);
+    }
     this.room.state.vomitPuddles.forEach(p => {
       g.fillStyle(0x79a62a, 0.32).fillCircle(p.x, p.y, p.radius);
       g.lineStyle(2, 0xb4d950, 0.65).strokeCircle(p.x, p.y, p.radius);
@@ -543,6 +592,9 @@ export class MultiplayerScene extends Phaser.Scene {
       g.lineStyle(3, 0x82ac29, 0.7).lineBetween(p.x, p.y, p.x - p.directionX * 12, p.y - p.directionY * 12);
     });
     this.room.state.players.forEach(p => {
+      if (p.assignmentLockEndsAt > Date.now()) {
+        g.lineStyle(2, 0xf2d48c, 0.85).strokeRoundedRect(p.x - 17, p.y - 23, 34, 46, 5);
+      }
       const rewindAge = Date.now() - p.lastRewindAt;
       if (p.lastRewindAt > 0 && rewindAge >= 0 && rewindAge < 300) {
         const fade = 1 - rewindAge / 300;
@@ -604,6 +656,22 @@ export class MultiplayerScene extends Phaser.Scene {
     g.lineBetween(px + ux * 6, py + uy * 6, px + uy * 4, py - ux * 4);
   }
 
+  private renderAssignmentChallenge(): void {
+    const challenge = this.assignmentChallenge;
+    const player = this.room.state.players.get(this.room.sessionId);
+    const view = this.playerViews.get(this.room.sessionId);
+    const visible = !!challenge && !!view && player?.role === PLAYER_ROLE.human && this.room.state.phase === GAME_PHASE.playing && Date.now() < challenge.expiresAt;
+    this.assignmentPrompt?.setVisible(visible);
+    this.assignmentArrows.forEach(arrow => arrow.setVisible(false));
+    if (!visible || !challenge || !view) return;
+    this.assignmentPrompt?.setPosition(view.sprite.x, view.sprite.y - 105)
+      .setText(`과제 제출하세요! ${Math.max(0, challenge.expiresAt - Date.now()) / 1000 < 0.05 ? "종료 중" : ((challenge.expiresAt - Date.now()) / 1000).toFixed(1) + "초"} · ${challenge.progressIndex}/${challenge.sequence.length}`);
+    const glyphs: Record<AssignmentDirection, string> = { UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→" };
+    challenge.sequence.forEach((direction, i) => this.assignmentArrows[i]?.setText(glyphs[direction])
+      .setPosition(view.sprite.x + (i - (challenge.sequence.length - 1) / 2) * 26, view.sprite.y - 78)
+      .setColor(Date.now() < this.assignmentErrorUntil ? "#ff7676" : i < challenge.progressIndex ? "#7ff0a0" : "#f2e7cf").setVisible(true));
+  }
+
   private renderBookBarriers(): void {
     const g = this.barrierGraphics;
     if (!g) return;
@@ -663,6 +731,8 @@ export class MultiplayerScene extends Phaser.Scene {
       this.movementInput.send();
     }
     this.predict?.dispose();
+    this.input.keyboard?.off("keydown", this.handleAssignmentKey);
+    this.assignmentPrompt?.destroy(); this.assignmentArrows.forEach(arrow => arrow.destroy());
     this.vomitGraphics?.destroy();
     this.trackingGraphics?.destroy();
     this.barrierGraphics?.destroy();

@@ -45,6 +45,7 @@ export function tryActivateSportsSprint(player: PlayerState, now: number): boole
     player.characterId !== CHARACTER_IDS.sportsStudent ||
     player.role !== PLAYER_ROLE.human ||
     player.activity !== PLAYER_ACTIVITY.normal ||
+    now < player.assignmentLockEndsAt ||
     !player.connected ||
     player.sprintState !== SPRINT_STATE.ready
   ) {

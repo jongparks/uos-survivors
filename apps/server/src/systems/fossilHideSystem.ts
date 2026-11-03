@@ -96,6 +96,7 @@ export class FossilHideSystem {
   }
 
   interact(player: PlayerState, now: number): FossilInteractionResult {
+    if (now < player.assignmentLockEndsAt) return "rejected";
     if (player.activity === PLAYER_ACTIVITY.hidden) {
       return this.exit(player) ? "exited" : "rejected";
     }

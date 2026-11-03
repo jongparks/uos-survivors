@@ -46,6 +46,8 @@ export const PlayerState = schema(
     rootedUntil: t.float64().default(0),
     confusionEndsAt: t.float64().default(0),
     philosophyCooldownEndsAt: t.float64().default(0),
+    assignmentLockEndsAt: t.float64().default(0),
+    professorCooldownEndsAt: t.float64().default(0),
     trapCastEndsAt: t.float64().default(0),
     trapCooldownEndsAt: t.float64().default(0),
     rewindCooldownEndsAt: t.float64().default(0),

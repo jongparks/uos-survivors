@@ -14,6 +14,7 @@ export const CHARACTER_IDS = {
   libraryNpc: "ZOMBIE_003",
   lateZombie: "ZOMBIE_004",
   xmanZombie: "ZOMBIE_005",
+  professor: "ZOMBIE_006",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -32,7 +33,7 @@ export function isCharacterId(value: unknown): value is CharacterId {
   return Object.values(CHARACTER_IDS).includes(value as CharacterId);
 }
 
-export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc, CHARACTER_IDS.lateZombie, CHARACTER_IDS.xmanZombie] as const;
+export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc, CHARACTER_IDS.lateZombie, CHARACTER_IDS.xmanZombie, CHARACTER_IDS.professor] as const;
 
 export function pickInitialZombieCharacter(randomValue: number): CharacterId {
   const index = Math.floor(Math.min(0.999_999, Math.max(0, randomValue)) * SPECIAL_ZOMBIE_CHARACTER_IDS.length);
@@ -164,6 +165,19 @@ export const PHILOSOPHY_STUDENT_CONFIG = {
   characterId: CHARACTER_IDS.philosophyStudent, characterName: "철학도", skillId: "SOCRATIC_METHOD",
   skillName: "소크라테스의 문답법", rangeTiles: 3, confusionDurationMs: 3_000, cooldownMs: 40_000,
 } as const;
+
+export const PROFESSOR_CONFIG = {
+  characterId: CHARACTER_IDS.professor, skillId: "ASSIGNMENT_SUBMISSION", skillName: "과제 제출하세요",
+  rangeTiles: 4, durationMs: 3_000, minSequenceLength: 2, maxSequenceLength: 4,
+  attackLockMs: 1_000, cooldownMs: 40_000,
+} as const;
+export const ASSIGNMENT_DIRECTIONS = ["UP", "DOWN", "LEFT", "RIGHT"] as const;
+export type AssignmentDirection = (typeof ASSIGNMENT_DIRECTIONS)[number];
+export const ASSIGNMENT_MESSAGES = { subscribe: "assignment:subscribe", state: "assignment:state", input: "assignment:direction_input" } as const;
+export interface AssignmentChallengeView {
+  id: string; sequence: AssignmentDirection[]; progressIndex: number; expiresAt: number;
+  event: "started" | "progress" | "failed" | "completed" | "expired" | "cancelled";
+}
 
 export const DRUNKEN_ZOMBIE_CONFIG = {
   characterId: CHARACTER_IDS.drunkenZombie,

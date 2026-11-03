@@ -74,7 +74,7 @@ export class ComputerRewindSystem {
     const p = state.players.get(id), history = this.histories.get(id);
     if (!p || !history || state.phase !== GAME_PHASE.playing || p.role !== PLAYER_ROLE.human ||
       p.characterId !== CHARACTER_IDS.computerStudent || !p.connected || p.activity !== PLAYER_ACTIVITY.normal ||
-      now < p.stunnedUntil || now < p.rewindCooldownEndsAt || p.trapCastEndsAt > now || p.dashEndsAt > now || p.vomitCastEndsAt > now) return false;
+      now < p.stunnedUntil || now < p.assignmentLockEndsAt || now < p.rewindCooldownEndsAt || p.trapCastEndsAt > now || p.dashEndsAt > now || p.vomitCastEndsAt > now) return false;
     const snapshots = [...history.ring.values(), { timestamp: now, x: p.x, y: p.y }];
     const target = findValidRewindPosition(snapshots, now - C.rewindMs, point => this.valid(state, id, point, now));
     if (!target) return false;

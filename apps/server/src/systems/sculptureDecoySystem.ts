@@ -62,6 +62,7 @@ export class SculptureDecoySystem {
       player.characterId !== CHARACTER_IDS.sculptureStudent ||
       player.role !== PLAYER_ROLE.human ||
       player.activity !== PLAYER_ACTIVITY.normal ||
+      now < player.assignmentLockEndsAt ||
       player.activeDecoyId !== "" ||
       now < player.decoyCooldownEndsAt
     ) {

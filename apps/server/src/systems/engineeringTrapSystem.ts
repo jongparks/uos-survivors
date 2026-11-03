@@ -16,7 +16,7 @@ export class EngineeringTrapSystem {
   tryActivate(state: GameState, id: string, now: number): boolean {
     const p = state.players.get(id);
     if (!p || state.phase !== GAME_PHASE.playing || p.characterId !== CHARACTER_IDS.engineeringStudent ||
-      p.role !== PLAYER_ROLE.human || !p.connected || p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil ||
+      p.role !== PLAYER_ROLE.human || !p.connected || p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.assignmentLockEndsAt ||
       now < p.trapCooldownEndsAt || this.casts.has(id) ||
       [...state.engineeringTraps.values()].some(t => t.ownerSessionId === id)) return false;
     p.trapCastEndsAt = now + C.castTimeMs;
@@ -32,7 +32,7 @@ export class EngineeringTrapSystem {
     for (const [id, start] of this.casts) {
       const p = state.players.get(id);
       if (!p || p.role !== PLAYER_ROLE.human || p.characterId !== CHARACTER_IDS.engineeringStudent || !p.connected ||
-        p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil) { this.cancel(id, p); continue; }
+        p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.assignmentLockEndsAt) { this.cancel(id, p); continue; }
       if (now < p.trapCastEndsAt) continue;
       this.cancel(id, p);
       if (collidesWithTestMap(start.x, start.y)) continue;

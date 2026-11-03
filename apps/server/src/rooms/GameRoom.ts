@@ -5,6 +5,8 @@ import { StateView } from "@colyseus/schema";
 import {
   CHARACTER_IDS,
   DANGER_MESSAGES,
+  ASSIGNMENT_MESSAGES,
+  type AssignmentChallengeView,
   type EngineeringTrapState,
   GRADUATE_TRACKING_MESSAGE,
   COMBAT_RULES,
@@ -49,6 +51,7 @@ import { HumanDangerSystem, calculateHumanDanger } from "../systems/humanDangerS
 import { EngineeringTrapSystem, canSeeEngineeringTrap } from "../systems/engineeringTrapSystem.js";
 import { ComputerRewindSystem } from "../systems/computerRewindSystem.js";
 import { tryActivateSocraticMethod, updateConfusion, resetPhilosophyState } from "../systems/philosophyConfusionSystem.js";
+import { ProfessorAssignmentSystem } from "../systems/professorAssignmentSystem.js";
 import { resetXmanDisguise, updateXmanDisguise, tryToggleXmanDisguise } from "../systems/xmanDisguiseSystem.js";
 import {
   getPlayerSpeedMultiplier,
@@ -78,6 +81,11 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly humanDangerSystem = new HumanDangerSystem();
   private readonly engineeringTrapSystem = new EngineeringTrapSystem();
   private readonly computerRewindSystem = new ComputerRewindSystem();
+  private readonly professorAssignmentSystem = new ProfessorAssignmentSystem();
+  private readonly assignmentSubscribers = new Set<string>();
+  private readonly sendAssignment = (id: string, view: AssignmentChallengeView): void => {
+    if (this.assignmentSubscribers.has(id)) this.clients.find(c => c.sessionId === id)?.send(ASSIGNMENT_MESSAGES.state, view);
+  };
   private readonly visibleTraps = new Map<string, Set<EngineeringTrapState>>();
   private readonly dangerSubscribers = new Set<string>();
   private readonly interactionHeld = new Map<string, boolean>();
@@ -98,6 +106,14 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.roomCode = this.roomId;
     this.state.isPrivate = options.visibility === ROOM_VISIBILITY.private;
     await this.setPrivate(this.state.isPrivate);
+    this.onMessage(ASSIGNMENT_MESSAGES.subscribe, client => {
+      this.assignmentSubscribers.add(client.sessionId);
+      this.professorAssignmentSystem.update(this.state, Date.now(), this.sendAssignment);
+      this.professorAssignmentSystem.sync(client.sessionId, this.sendAssignment);
+    });
+    this.onMessage(ASSIGNMENT_MESSAGES.input, (client, payload: unknown) => {
+      this.professorAssignmentSystem.input(this.state, client.sessionId, payload, Date.now(), this.sendAssignment);
+    });
     this.onMessage(MATCH_MESSAGES.start, client => {
       if (client.sessionId === this.state.hostSessionId) this.tryStartMatch();
     });
@@ -155,6 +171,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   onLeave(client: Client): void {
+    this.assignmentSubscribers.delete(client.sessionId);
     this.engineeringTrapSystem.removeOwner(this.state, client.sessionId);
     this.computerRewindSystem.remove(client.sessionId);
     this.visibleTraps.delete(client.sessionId);
@@ -209,6 +226,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
   private simulate(context: StepContext): void {
     const now = Date.now();
+    this.professorAssignmentSystem.update(this.state, now, this.sendAssignment);
     this.libraryBarrierSystem.update(this.state, now);
     this.engineeringTrapSystem.update(this.state, now);
 
@@ -252,6 +270,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       }
 
       this.sculptureDecoySystem.recordMovement(sessionId, player, input, now);
+      if (now < player.assignmentLockEndsAt) return;
 
       if (interactionPressed && this.fossilHideSystem.interact(player, now) === "entered") {
         this.setPlayerVisibleToOthers(sessionId, player, false);
@@ -268,6 +287,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.engineeringTrapSystem.tryActivate(this.state, sessionId, now);
         if (this.computerRewindSystem.tryActivate(this.state, sessionId, now)) this.humanDangerSystem.invalidate();
         tryActivateSocraticMethod(this.state, sessionId, now);
+        this.professorAssignmentSystem.tryActivate(this.state, sessionId, now, this.sendAssignment);
         tryToggleXmanDisguise(this.state, sessionId, now);
         if (player.characterId === CHARACTER_IDS.libraryNpc && !this.libraryBarrierSystem.tryActivate(this.state, sessionId, now)) {
           this.clients.find(client => client.sessionId === sessionId)?.send(LIBRARY_PLACEMENT_FAILED_MESSAGE);
@@ -330,6 +350,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     if (this.state.phase === GAME_PHASE.finished) this.state.players.forEach(resetPhilosophyState);
     this.engineeringTrapSystem.update(this.state, now);
     this.clients.forEach(client => this.syncTrapView(client));
+    this.professorAssignmentSystem.update(this.state, now, this.sendAssignment);
     this.humanDangerSystem.update(this.state, now, (id, update) => {
       if (this.dangerSubscribers.has(id)) this.clients.find(client => client.sessionId === id)?.send(DANGER_MESSAGES.update, update);
     });
@@ -365,6 +386,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.lateDashSystem.clear(this.state);
     this.engineeringTrapSystem.clear(this.state);
     this.computerRewindSystem.clear(this.state);
+    this.professorAssignmentSystem.clear(this.state, this.sendAssignment);
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
       resetPhilosophyState(candidate);
@@ -397,6 +419,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.matchStartedAt = 0;
     this.state.matchParticipantCount = 0;
     this.fossilHideSystem.clear();
+    this.professorAssignmentSystem.clear(this.state, this.sendAssignment);
     this.computerRewindSystem.clear(this.state);
     this.engineeringTrapSystem.clear(this.state);
     this.lateDashSystem.clear(this.state);
