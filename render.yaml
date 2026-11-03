@@ -1,0 +1,17 @@
+# Game server only. The web client is deployed separately on Vercel.
+services:
+  - type: web
+    name: uos-survivors-server
+    runtime: node
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: corepack pnpm install --frozen-lockfile --prod=false && corepack pnpm --filter @uos-survivors/shared build && corepack pnpm --filter @uos-survivors/server build
+    startCommand: node apps/server/dist/index.js
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: NODE_ENV
+        value: production

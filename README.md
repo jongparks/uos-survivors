@@ -74,3 +74,7 @@ pnpm test:connection
 
 환경 변수는 [`.env.example`](./.env.example)을 참고합니다.
 
+## 지인 테스트 배포
+
+웹은 Vercel, 게임 서버는 Render 무료 Web Service를 사용합니다. 서버 설정은 루트 `render.yaml`, 웹 설정은 `apps/web/vercel.json`에 있습니다. 가입부터 외부 접속 확인까지는 [배포 안내](./docs/DEPLOYMENT.md)를 따릅니다. Render 무료 서버는 유휴 상태에서 중지될 수 있으며 상시 운영 성능을 보장하지 않습니다.
+
