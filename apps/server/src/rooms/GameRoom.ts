@@ -4,6 +4,7 @@ import { StateView } from "@colyseus/schema";
 
 import {
   CHARACTER_IDS,
+  GRADUATE_TRACKING_MESSAGE,
   COMBAT_RULES,
   FOSSIL_MESSAGES,
   GAME_LIMITS,
@@ -35,6 +36,7 @@ import { FossilHideSystem } from "../systems/fossilHideSystem.js";
 import { finishIfAllHumansInfected, infectHuman } from "../systems/infectionSystem.js";
 import { SculptureDecoySystem } from "../systems/sculptureDecoySystem.js";
 import { VomitSystem } from "../systems/vomitSystem.js";
+import { GraduateTrackingSystem } from "../systems/graduateTrackingSystem.js";
 import {
   getPlayerSpeedMultiplier,
   resetSportsSprint,
@@ -57,6 +59,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly fossilHideSystem = new FossilHideSystem(CURRENT_MAP_HIDE_SPOT_CANDIDATES);
   private readonly sculptureDecoySystem = new SculptureDecoySystem();
   private readonly vomitSystem = new VomitSystem();
+  private readonly graduateTrackingSystem = new GraduateTrackingSystem();
   private readonly interactionHeld = new Map<string, boolean>();
   private readonly skillHeld = new Map<string, boolean>();
   private readonly hideSpotSubscribers = new Set<string>();
@@ -124,6 +127,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.interactionHeld.delete(client.sessionId);
     this.skillHeld.delete(client.sessionId);
     this.vomitSystem.cancel(client.sessionId);
+    this.graduateTrackingSystem.remove(client.sessionId);
     this.hideSpotSubscribers.delete(client.sessionId);
     this.sculptureDecoySystem.removeOwner(this.state, client.sessionId);
     this.state.players.delete(client.sessionId);
@@ -212,6 +216,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         tryActivateSportsSprint(player, now);
         this.sculptureDecoySystem.tryActivate(this.state, sessionId, now);
         this.vomitSystem.tryActivate(this.state, sessionId, now);
+        this.graduateTrackingSystem.tryActivate(this.state, sessionId, now);
       }
 
       if (!player.vomitCastEndsAt && (input.moveX !== 0 || input.moveY !== 0)) {
@@ -245,6 +250,16 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       this.sculptureDecoySystem.removeOwner(this.state, id);
       if (infectHuman(this.state, id, now)) finishIfAllHumansInfected(this.state);
     }, (id, owner) => this.sculptureDecoySystem.hitDecoy(this.state, id, owner, now));
+    // Private messages only: tracking targets never enter shared room/player state.
+    this.state.players.forEach((player, id) => {
+      if (player.characterId === CHARACTER_IDS.graduateZombie) this.graduateTrackingSystem.view(this.state, id, now);
+    });
+    this.clients.forEach(client => {
+      if (this.state.players.get(client.sessionId)?.characterId === CHARACTER_IDS.graduateZombie) {
+        const view = this.graduateTrackingSystem.view(this.state, client.sessionId, now);
+        if (view.cooldownEndsAt > 0) client.send(GRADUATE_TRACKING_MESSAGE, view);
+      }
+    });
   }
 
   private tryStartMatch(): void {
@@ -271,6 +286,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     const [sessionId, player] = initialZombie;
     this.sculptureDecoySystem.clear(this.state);
     this.vomitSystem.clear(this.state);
+    this.graduateTrackingSystem.clear();
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
       this.fossilHideSystem.resetPlayer(candidate);
@@ -296,6 +312,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = "";
     this.state.mapConfigError = "";
     this.fossilHideSystem.clear();
+    this.graduateTrackingSystem.clear();
     this.vomitSystem.clear(this.state);
     this.sculptureDecoySystem.clear(this.state);
     this.state.players.forEach((player) => {

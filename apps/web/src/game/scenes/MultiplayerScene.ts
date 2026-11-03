@@ -3,6 +3,9 @@ import Phaser from "phaser";
 
 import {
   CHARACTER_IDS,
+  GRADUATE_TRACKING_MESSAGE,
+  GRADUATE_ZOMBIE_CONFIG,
+  type GraduateTrackingView,
   FOSSIL_CONFIG,
   FOSSIL_MESSAGES,
   GAME_PHASE,
@@ -53,6 +56,8 @@ export class MultiplayerScene extends Phaser.Scene {
   private readonly fossilHideSpotMarkers = new Map<string, FossilHideSpotMarker>();
   private disposed = false;
   private vomitGraphics?: Phaser.GameObjects.Graphics;
+  private trackingGraphics?: Phaser.GameObjects.Graphics;
+  private tracking: GraduateTrackingView = { target: null, trackingEndsAt: 0, cooldownEndsAt: 0 };
 
   constructor(room: ConnectedGameRoom) {
     super("multiplayer");
@@ -63,6 +68,7 @@ export class MultiplayerScene extends Phaser.Scene {
     createGeneratedTextures(this);
     this.createMap();
     this.vomitGraphics = this.add.graphics().setDepth(7);
+    this.trackingGraphics = this.add.graphics().setScrollFactor(0).setDepth(90);
     this.keyboardInput = new KeyboardInput(this);
     this.movementInput = this.room.input({ type: MovementInput, mode: "reliable" });
     this.predict = Predict.get(this.room, {
@@ -85,6 +91,9 @@ export class MultiplayerScene extends Phaser.Scene {
 
     const callbacks = Callbacks.get(this.room);
     this.callbackDisposers.push(
+      this.room.onMessage<GraduateTrackingView>(GRADUATE_TRACKING_MESSAGE, view => {
+        if (!this.disposed) this.tracking = view;
+      }),
       callbacks.onAdd("players", (player, sessionId) => {
         this.addPlayer(player, sessionId);
       }),
@@ -188,6 +197,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.renderPlayers();
     this.renderDecoys();
     this.renderVomit();
+    this.renderTracking();
   }
 
   private createMap(): void {
@@ -328,12 +338,21 @@ export class MultiplayerScene extends Phaser.Scene {
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
             : player.characterId === CHARACTER_IDS.normalZombie
               ? `ROLE · ZOMBIE · 일반 좀비 · ${basicAttackLabel}`
-              : `ROLE · ZOMBIE · 만취생 · ${basicAttackLabel}`,
+              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.graduateZombie && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(this.tracking.target && now < this.tracking.trackingEndsAt
+        ? `교수님이 찾으신다 · 추적 중 ${((this.tracking.trackingEndsAt - now) / 1000).toFixed(1)}초`
+        : now < this.tracking.cooldownEndsAt
+          ? `교수님이 찾으신다 · 재사용까지 ${Math.ceil((this.tracking.cooldownEndsAt - now) / 1000)}초`
+          : "[SHIFT] 교수님이 찾으신다").setVisible(true);
+      return;
+    }
     if (player.characterId === CHARACTER_IDS.drunkenZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(player.vomitCastEndsAt > now
@@ -439,6 +458,39 @@ export class MultiplayerScene extends Phaser.Scene {
     });
   }
 
+  private renderTracking(): void {
+    const g = this.trackingGraphics;
+    if (!g) return;
+    g.clear();
+    const local = this.room.state.players.get(this.room.sessionId);
+    const target = this.tracking.target;
+    if (!target || local?.characterId !== CHARACTER_IDS.graduateZombie ||
+      this.room.state.phase !== GAME_PHASE.playing || Date.now() >= this.tracking.trackingEndsAt) return;
+    // Immediately suppress stale private packets when a target leaves visibility.
+    const player = this.room.state.players.get(target.id);
+    if (!player || player.role !== PLAYER_ROLE.human || player.activity === PLAYER_ACTIVITY.hidden) return;
+    const camera = this.cameras.main;
+    const x = (target.x - camera.worldView.x) * camera.zoom;
+    const y = (target.y - camera.worldView.y) * camera.zoom;
+    g.lineStyle(2, 0xf0d45e, 1);
+    if (x >= 0 && x <= camera.width && y >= 0 && y <= camera.height) {
+      g.strokeRoundedRect(x - 19, y - 25, 38, 50, 8);
+      return;
+    }
+    const radius = GRADUATE_ZOMBIE_CONFIG.offscreenIndicatorDiameterPx / 2;
+    const inset = GRADUATE_ZOMBIE_CONFIG.offscreenIndicatorMarginPx + radius;
+    const cx = camera.width / 2, cy = camera.height / 2;
+    const dx = x - cx, dy = y - cy;
+    const scale = Math.min(dx ? (cx - inset) / Math.abs(dx) : Infinity, dy ? (cy - inset) / Math.abs(dy) : Infinity);
+    const px = cx + dx * scale, py = cy + dy * scale;
+    const angle = Math.atan2(dy, dx), ux = Math.cos(angle), uy = Math.sin(angle);
+    g.fillStyle(0x181b12, 0.85).fillCircle(px, py, radius);
+    g.strokeCircle(px, py, radius);
+    g.lineBetween(px - ux * 6, py - uy * 6, px + ux * 6, py + uy * 6);
+    g.lineBetween(px + ux * 6, py + uy * 6, px - uy * 4, py + ux * 4);
+    g.lineBetween(px + ux * 6, py + uy * 6, px + uy * 4, py - ux * 4);
+  }
+
   private clearFossilHideSpotMarkers(): void {
     this.fossilHideSpotMarkers.forEach(({ ring, dot, tween }) => {
       tween.stop();
@@ -468,6 +520,7 @@ export class MultiplayerScene extends Phaser.Scene {
     }
     this.predict?.dispose();
     this.vomitGraphics?.destroy();
+    this.trackingGraphics?.destroy();
     this.callbackDisposers.splice(0).forEach((dispose) => dispose());
     this.playerViews.forEach((view) => view.destroy());
     this.playerViews.clear();

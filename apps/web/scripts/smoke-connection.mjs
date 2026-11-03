@@ -17,6 +17,8 @@ import {
   ROOM_NAMES,
   ROOM_VISIBILITY,
   CHARACTER_IDS,
+  SPECIAL_ZOMBIE_CHARACTER_IDS,
+  GRADUATE_TRACKING_MESSAGE,
 } from "@uos-survivors/shared";
 
 const webDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -142,8 +144,7 @@ try {
   }
 
   if (
-    publicHostRoom.state.players.get(publicHostRoom.sessionId)?.characterId !==
-      CHARACTER_IDS.drunkenZombie ||
+    !SPECIAL_ZOMBIE_CHARACTER_IDS.includes(publicHostRoom.state.players.get(publicHostRoom.sessionId)?.characterId) ||
     Array.from(publicHostRoom.state.players.values()).some(
       (player) =>
         player.role === PLAYER_ROLE.human &&
@@ -221,12 +222,22 @@ try {
   }
 
   const infectionStartedAt = Date.now();
+  let tracking;
+  let guestTrackingPackets = 0;
+  privateHostRoom.onMessage(GRADUATE_TRACKING_MESSAGE, view => { tracking = view; });
+  invitedPrivateGuest.onMessage(GRADUATE_TRACKING_MESSAGE, () => { guestTrackingPackets++; });
   privateInput.data.moveX = 0;
   privateInput.data.useSkill = true;
   privateInput.send();
   await delay(35);
   privateInput.data.useSkill = false;
   privateInput.send();
+
+  if (privateHostRoom.state.players.get(privateHostRoom.sessionId)?.characterId === CHARACTER_IDS.graduateZombie) {
+    await waitUntil(() => tracking?.target?.id === invitedPrivateGuest.sessionId, "Graduate did not privately track the nearest human");
+    if (guestTrackingPackets !== 0) throw new Error("Tracking leaked to another client");
+    privateInput.data.interact = true; privateInput.send();
+  }
 
   const infectedPrivateGuest = privateHostRoom.state.players.get(invitedPrivateGuest.sessionId);
   await waitUntil(

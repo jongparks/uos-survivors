@@ -19,7 +19,7 @@ describe("일반 좀비", () => {
   });
   it("never appears in initial assignment", () => {
     for (const roll of [-1, 0, 0.25, 0.5, 0.999, 1]) {
-      expect(pickInitialZombieCharacter(roll)).toBe(CHARACTER_IDS.drunkenZombie);
+      expect([CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie]).toContain(pickInitialZombieCharacter(roll));
     }
   });
 

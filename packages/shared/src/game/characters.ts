@@ -6,6 +6,7 @@ export const CHARACTER_IDS = {
   sculptureStudent: "HUMAN_003",
   drunkenZombie: "ZOMBIE_001",
   normalZombie: "ZOMBIE_000",
+  graduateZombie: "ZOMBIE_002",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -26,7 +27,7 @@ export function pickRandomHumanCharacter(randomValue: number): CharacterId {
   return HUMAN_CHARACTER_IDS[index] ?? CHARACTER_IDS.fossil;
 }
 
-export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie] as const;
+export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie] as const;
 
 export function pickInitialZombieCharacter(randomValue: number): CharacterId {
   const index = Math.floor(Math.min(0.999_999, Math.max(0, randomValue)) * SPECIAL_ZOMBIE_CHARACTER_IDS.length);
@@ -150,3 +151,20 @@ export const DRUNKEN_ZOMBIE_CONFIG = {
   puddleRadiusTiles: 1,
   puddleSpeedMultiplier: 0.75,
 } as const;
+
+export const GRADUATE_ZOMBIE_CONFIG = {
+  characterId: CHARACTER_IDS.graduateZombie,
+  skillId: "PROFESSOR_CALL",
+  skillName: "교수님이 찾으신다",
+  activationKey: "SHIFT",
+  detectionDurationMs: 4_000,
+  cooldownMs: 35_000,
+  offscreenIndicatorDiameterPx: 24,
+  offscreenIndicatorMarginPx: 20,
+} as const;
+export const GRADUATE_TRACKING_MESSAGE = "graduate:tracking";
+export interface GraduateTrackingView {
+  target: { id: string; x: number; y: number } | null;
+  trackingEndsAt: number;
+  cooldownEndsAt: number;
+}
