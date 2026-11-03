@@ -38,6 +38,10 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
   player.rootedUntil = 0;
   player.trapCastEndsAt = 0;
   player.trapCooldownEndsAt = 0;
+  player.rewindCooldownEndsAt = 0;
+  player.lastRewindAt = 0;
+  player.rewindFromX = 0;
+  player.rewindFromY = 0;
   state.engineeringTraps.forEach((trap, id) => { if (trap.ownerSessionId === sessionId) state.engineeringTraps.delete(id); });
   player.attackLockedUntil = now + COMBAT_RULES.infectionAttackLockMs;
   player.nextAttackAt = player.attackLockedUntil;

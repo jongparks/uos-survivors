@@ -41,4 +41,5 @@ export class HumanDangerSystem {
     });
   }
   forget(id: string): void { this.lastLevels.delete(id); }
+  invalidate(): void { this.lastUpdatedAt = -Infinity; }
 }

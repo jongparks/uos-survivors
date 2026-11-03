@@ -5,6 +5,7 @@ export const CHARACTER_IDS = {
   sportsStudent: "HUMAN_002",
   sculptureStudent: "HUMAN_003",
   engineeringStudent: "HUMAN_004",
+  computerStudent: "HUMAN_005",
   drunkenZombie: "ZOMBIE_001",
   normalZombie: "ZOMBIE_000",
   graduateZombie: "ZOMBIE_002",
@@ -20,6 +21,7 @@ export const HUMAN_CHARACTER_IDS = [
   CHARACTER_IDS.sportsStudent,
   CHARACTER_IDS.sculptureStudent,
   CHARACTER_IDS.engineeringStudent,
+  CHARACTER_IDS.computerStudent,
 ] as const satisfies readonly CharacterId[];
 
 export function isCharacterId(value: unknown): value is CharacterId {
@@ -148,6 +150,11 @@ export const ENGINEERING_TRAP_CONFIG = {
   characterId: CHARACTER_IDS.engineeringStudent, skillId: "ENGINEERING_TRAP", skillName: "밤샘 제작",
   castTimeMs: 500, activationDelayMs: 500, lifetimeMs: 20_000, cooldownMs: 30_000,
   rootDurationMs: 2_500, zombieVisibilityTiles: 1.5, maxActiveTraps: 1,
+} as const;
+
+export const COMPUTER_STUDENT_CONFIG = {
+  characterId: CHARACTER_IDS.computerStudent, skillId: "CTRL_Z", skillName: "Ctrl + Z",
+  rewindMs: 3_000, cooldownMs: 40_000, historyDurationMs: 3_500, sampleIntervalMs: 50,
 } as const;
 
 export const DRUNKEN_ZOMBIE_CONFIG = {

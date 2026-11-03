@@ -4,6 +4,7 @@ import Phaser from "phaser";
 import {
   CHARACTER_IDS,
   ENGINEERING_TRAP_CONFIG,
+  COMPUTER_STUDENT_CONFIG,
   GRADUATE_TRACKING_MESSAGE,
   GRADUATE_ZOMBIE_CONFIG,
   type GraduateTrackingView,
@@ -298,10 +299,11 @@ export class MultiplayerScene extends Phaser.Scene {
         return;
       }
 
+      const instantRewind = player.lastRewindAt > 0 && Date.now() - player.lastRewindAt < 300;
       view.applyRenderState(
         player,
-        this.predict?.value(player, "x") ?? player.x,
-        this.predict?.value(player, "y") ?? player.y,
+        instantRewind ? player.x : this.predict?.value(player, "x") ?? player.x,
+        instantRewind ? player.y : this.predict?.value(player, "y") ?? player.y,
       );
 
       if (sessionId === this.room.sessionId) {
@@ -336,7 +338,8 @@ export class MultiplayerScene extends Phaser.Scene {
     const isZombie = player.role === PLAYER_ROLE.zombie;
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
     const characterLabel =
-      player.characterId === CHARACTER_IDS.engineeringStudent ? "공대생 / ENGINEERING"
+      player.characterId === CHARACTER_IDS.computerStudent ? "컴과생 / COMPUTER SCIENCE"
+        : player.characterId === CHARACTER_IDS.engineeringStudent ? "공대생 / ENGINEERING"
         : player.characterId === CHARACTER_IDS.sportsStudent
         ? "스과생 / SPORTS SCIENCE"
         : player.characterId === CHARACTER_IDS.sculptureStudent
@@ -374,6 +377,13 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.computerStudent && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(player.rewindCooldownEndsAt > now
+        ? `${COMPUTER_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.rewindCooldownEndsAt - now) / 1000)}초`
+        : `[SHIFT] ${COMPUTER_STUDENT_CONFIG.skillName} · 3초 전 위치 복귀`).setVisible(true);
+      return;
+    }
     if (player.characterId === CHARACTER_IDS.engineeringStudent && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(player.trapCastEndsAt > now ? "밤샘 제작 · 설치 중"
@@ -508,6 +518,15 @@ export class MultiplayerScene extends Phaser.Scene {
       g.lineStyle(3, 0x82ac29, 0.7).lineBetween(p.x, p.y, p.x - p.directionX * 12, p.y - p.directionY * 12);
     });
     this.room.state.players.forEach(p => {
+      const rewindAge = Date.now() - p.lastRewindAt;
+      if (p.lastRewindAt > 0 && rewindAge >= 0 && rewindAge < 300) {
+        const fade = 1 - rewindAge / 300;
+        g.lineStyle(2, 0x71caff, fade).strokeEllipse(p.rewindFromX, p.rewindFromY, 24, 36);
+        for (let i = 0; i < 6; i++) {
+          const angle = i * Math.PI / 3, radius = 8 + rewindAge * 0.045;
+          g.fillStyle(0x71caff, fade).fillRect(p.x + Math.cos(angle) * radius - 2, p.y + Math.sin(angle) * radius - 2, 4, 4);
+        }
+      }
       if (p.rootedUntil > Date.now()) {
         g.lineStyle(2, 0xe7bd70, 0.9).strokeEllipse(p.x, p.y + 10, 30, 12);
       }

@@ -334,6 +334,20 @@ try {
     throw new Error("Manual reconnection duplicated or removed a player");
   }
 
+  const computerRoom = rooms.find(room => room.roomId === publicHostRoom.roomId &&
+    room.state.players.get(room.sessionId)?.characterId === CHARACTER_IDS.computerStudent);
+  if (computerRoom) {
+    await delay(3100);
+    const rewindInput = computerRoom.input({ type: MovementInput, mode: "reliable" });
+    rewindInput.data.useSkill = true; rewindInput.send();
+    await waitUntil(() => (publicHostRoom.state.players.get(computerRoom.sessionId)?.lastRewindAt ?? 0) > 0,
+      "Computer Student rewind did not synchronize to another player");
+    const rewound = publicHostRoom.state.players.get(computerRoom.sessionId);
+    if (rewound.role !== PLAYER_ROLE.human || rewound.rewindCooldownEndsAt - rewound.lastRewindAt !== 40000) {
+      throw new Error("Rewind changed team or failed to start its cooldown");
+    }
+  }
+
   console.log(
     `Phase 5 foundation smoke test passed: public=${publicHostRoom.roomId} (${publicHostRoom.state.players.size}), private=${resumedPrivateRoom.roomId} (${resumedPrivateRoom.state.players.size}), ack=${acknowledgedInputs}, infectionLock=${COMBAT_RULES.infectionAttackLockMs}ms`,
   );

@@ -44,6 +44,7 @@ import { LibraryBarrierSystem } from "../systems/libraryBarrierSystem.js";
 import { LateDashSystem } from "../systems/lateDashSystem.js";
 import { HumanDangerSystem, calculateHumanDanger } from "../systems/humanDangerSystem.js";
 import { EngineeringTrapSystem, canSeeEngineeringTrap } from "../systems/engineeringTrapSystem.js";
+import { ComputerRewindSystem } from "../systems/computerRewindSystem.js";
 import { resetXmanDisguise, updateXmanDisguise, tryToggleXmanDisguise } from "../systems/xmanDisguiseSystem.js";
 import {
   getPlayerSpeedMultiplier,
@@ -72,6 +73,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly lateDashSystem = new LateDashSystem();
   private readonly humanDangerSystem = new HumanDangerSystem();
   private readonly engineeringTrapSystem = new EngineeringTrapSystem();
+  private readonly computerRewindSystem = new ComputerRewindSystem();
   private readonly visibleTraps = new Map<string, Set<EngineeringTrapState>>();
   private readonly dangerSubscribers = new Set<string>();
   private readonly interactionHeld = new Map<string, boolean>();
@@ -119,6 +121,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.players.set(client.sessionId, player);
     this.addPlayerToClientViews(client, player);
     this.tryStartMatch();
+    this.computerRewindSystem.record(this.state, client.sessionId, Date.now());
   }
 
   onDrop(client: Client): void {
@@ -144,6 +147,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
   onLeave(client: Client): void {
     this.engineeringTrapSystem.removeOwner(this.state, client.sessionId);
+    this.computerRewindSystem.remove(client.sessionId);
     this.visibleTraps.delete(client.sessionId);
     this.dangerSubscribers.delete(client.sessionId);
     this.humanDangerSystem.forget(client.sessionId);
@@ -208,6 +212,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
       updateSportsSprint(player, now);
       updateXmanDisguise(player, now);
+      this.computerRewindSystem.record(this.state, sessionId, now);
       this.engineeringTrapSystem.checkPlayer(this.state, player, now);
 
       if (this.fossilHideSystem.update(player, now)) {
@@ -250,6 +255,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.graduateTrackingSystem.tryActivate(this.state, sessionId, now);
         this.lateDashSystem.tryActivate(this.state, sessionId, now);
         this.engineeringTrapSystem.tryActivate(this.state, sessionId, now);
+        if (this.computerRewindSystem.tryActivate(this.state, sessionId, now)) this.humanDangerSystem.invalidate();
         tryToggleXmanDisguise(this.state, sessionId, now);
         if (player.characterId === CHARACTER_IDS.libraryNpc && !this.libraryBarrierSystem.tryActivate(this.state, sessionId, now)) {
           this.clients.find(client => client.sessionId === sessionId)?.send(LIBRARY_PLACEMENT_FAILED_MESSAGE);
@@ -343,6 +349,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.libraryBarrierSystem.clear(this.state);
     this.lateDashSystem.clear(this.state);
     this.engineeringTrapSystem.clear(this.state);
+    this.computerRewindSystem.clear(this.state);
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
       resetXmanDisguise(candidate);
@@ -362,6 +369,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = sessionId;
     this.state.winner = MATCH_WINNER.none;
     this.state.phase = GAME_PHASE.playing;
+    this.state.players.forEach((_candidate, id) => this.computerRewindSystem.record(this.state, id, Date.now()));
   }
 
   private resetToWaiting(): void {
@@ -370,6 +378,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = "";
     this.state.mapConfigError = "";
     this.fossilHideSystem.clear();
+    this.computerRewindSystem.clear(this.state);
     this.engineeringTrapSystem.clear(this.state);
     this.lateDashSystem.clear(this.state);
     this.libraryBarrierSystem.clear(this.state);
