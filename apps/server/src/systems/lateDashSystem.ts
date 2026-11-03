@@ -23,7 +23,7 @@ export class LateDashSystem {
     const p = state.players.get(id);
     if (!p || state.phase !== GAME_PHASE.playing || p.characterId !== CHARACTER_IDS.lateZombie ||
       p.role !== PLAYER_ROLE.zombie || !p.connected || p.activity !== PLAYER_ACTIVITY.normal ||
-      now < p.stunnedUntil || now < p.dashCooldownEndsAt || this.traveled.has(id)) return false;
+      now < p.stunnedUntil || now < p.rootedUntil || now < p.dashCooldownEndsAt || this.traveled.has(id)) return false;
     const length = Math.hypot(p.facingX, p.facingY);
     if (!length) return false;
     p.dashStartedAt = now; p.dashEndsAt = now + C.dashDurationMs; p.dashCooldownEndsAt = now + C.cooldownMs;
@@ -46,7 +46,7 @@ export class LateDashSystem {
     const traveled = this.traveled.get(id), p = state.players.get(id);
     if (traveled === undefined) return false;
     if (!p || !p.connected || state.phase !== GAME_PHASE.playing || p.role !== PLAYER_ROLE.zombie ||
-      p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil) { this.cancel(id, p); return true; }
+      p.activity !== PLAYER_ACTIVITY.normal || now < p.stunnedUntil || now < p.rootedUntil) { this.cancel(id, p); return true; }
     const total = TILE_SIZE * C.dashDistanceTiles;
     const step = Math.max(0, Math.min(total, total * (now - p.dashStartedAt) / C.dashDurationMs) - traveled);
     let distance = Infinity, kind = "wall", targetId = "";

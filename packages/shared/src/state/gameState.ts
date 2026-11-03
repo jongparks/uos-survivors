@@ -43,6 +43,9 @@ export const PlayerState = schema(
     dashDirectionY: t.float32().default(0),
     attackLockedUntil: t.float64().default(0),
     stunnedUntil: t.float64().default(0),
+    rootedUntil: t.float64().default(0),
+    trapCastEndsAt: t.float64().default(0),
+    trapCooldownEndsAt: t.float64().default(0),
     vomitCastEndsAt: t.float64().default(0),
     vomitCooldownEndsAt: t.float64().default(0),
   },
@@ -78,6 +81,12 @@ export const BookBarrierState = schema({
   createdAt: t.float64(), expiresAt: t.float64(),
 }, "BookBarrierState");
 
+export const EngineeringTrapState = schema({
+  ownerSessionId: t.string(), x: t.float32(), y: t.float32(),
+  createdAt: t.float64(), activatesAt: t.float64(), expiresAt: t.float64(),
+}, "EngineeringTrapState");
+export type EngineeringTrapState = SchemaType<typeof EngineeringTrapState>;
+
 export const GameState = schema(
   {
     roomCode: t.string().default(""),
@@ -91,6 +100,7 @@ export const GameState = schema(
     vomitProjectiles: t.map(VomitProjectileState),
     vomitPuddles: t.map(VomitPuddleState),
     bookBarriers: t.map(BookBarrierState),
+    engineeringTraps: t.map(EngineeringTrapState).view(),
   },
   "GameState",
 );

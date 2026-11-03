@@ -13,6 +13,7 @@ import {
   MovementInput,
   NETWORK_RATE,
   PLAYER_SPEED,
+  getCharacterSpeedMultiplier,
   PLAYER_ROLE,
   ROOM_NAMES,
   ROOM_VISIBILITY,
@@ -177,7 +178,7 @@ try {
     "Sanitized movement input was not processed",
   );
 
-  const maxSingleStepDistance = PLAYER_SPEED / NETWORK_RATE.simulationHz + 0.5;
+  const maxSingleStepDistance = PLAYER_SPEED * getCharacterSpeedMultiplier(hostPlayer.characterId, hostPlayer.role, hostPlayer.sprintState, hostPlayer.isDisguised) / NETWORK_RATE.simulationHz + 0.5;
   const sanitizedDeltaX = hostPlayer.x - beforeSanitizedInput;
   const sanitizedDeltaY = hostPlayer.y - beforeSanitizedInputY;
   if (

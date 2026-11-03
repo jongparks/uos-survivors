@@ -5,6 +5,7 @@ import { StateView } from "@colyseus/schema";
 import {
   CHARACTER_IDS,
   DANGER_MESSAGES,
+  type EngineeringTrapState,
   GRADUATE_TRACKING_MESSAGE,
   COMBAT_RULES,
   FOSSIL_MESSAGES,
@@ -42,6 +43,7 @@ import { GraduateTrackingSystem } from "../systems/graduateTrackingSystem.js";
 import { LibraryBarrierSystem } from "../systems/libraryBarrierSystem.js";
 import { LateDashSystem } from "../systems/lateDashSystem.js";
 import { HumanDangerSystem, calculateHumanDanger } from "../systems/humanDangerSystem.js";
+import { EngineeringTrapSystem, canSeeEngineeringTrap } from "../systems/engineeringTrapSystem.js";
 import { resetXmanDisguise, updateXmanDisguise, tryToggleXmanDisguise } from "../systems/xmanDisguiseSystem.js";
 import {
   getPlayerSpeedMultiplier,
@@ -69,6 +71,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly libraryBarrierSystem = new LibraryBarrierSystem();
   private readonly lateDashSystem = new LateDashSystem();
   private readonly humanDangerSystem = new HumanDangerSystem();
+  private readonly engineeringTrapSystem = new EngineeringTrapSystem();
+  private readonly visibleTraps = new Map<string, Set<EngineeringTrapState>>();
   private readonly dangerSubscribers = new Set<string>();
   private readonly interactionHeld = new Map<string, boolean>();
   private readonly skillHeld = new Map<string, boolean>();
@@ -139,6 +143,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   onLeave(client: Client): void {
+    this.engineeringTrapSystem.removeOwner(this.state, client.sessionId);
+    this.visibleTraps.delete(client.sessionId);
     this.dangerSubscribers.delete(client.sessionId);
     this.humanDangerSystem.forget(client.sessionId);
     client.view?.dispose();
@@ -190,6 +196,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private simulate(context: StepContext): void {
     const now = Date.now();
     this.libraryBarrierSystem.update(this.state, now);
+    this.engineeringTrapSystem.update(this.state, now);
 
     this.state.players.forEach((player, sessionId) => {
       const inputChannel = this.inputs.get(sessionId);
@@ -201,6 +208,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
       updateSportsSprint(player, now);
       updateXmanDisguise(player, now);
+      this.engineeringTrapSystem.checkPlayer(this.state, player, now);
 
       if (this.fossilHideSystem.update(player, now)) {
         this.setPlayerVisibleToOthers(sessionId, player, true);
@@ -241,12 +249,14 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.vomitSystem.tryActivate(this.state, sessionId, now);
         this.graduateTrackingSystem.tryActivate(this.state, sessionId, now);
         this.lateDashSystem.tryActivate(this.state, sessionId, now);
+        this.engineeringTrapSystem.tryActivate(this.state, sessionId, now);
         tryToggleXmanDisguise(this.state, sessionId, now);
         if (player.characterId === CHARACTER_IDS.libraryNpc && !this.libraryBarrierSystem.tryActivate(this.state, sessionId, now)) {
           this.clients.find(client => client.sessionId === sessionId)?.send(LIBRARY_PLACEMENT_FAILED_MESSAGE);
         }
       }
 
+      const movementStart = { x: player.x, y: player.y };
       const dashMoved = this.lateDashSystem.updatePlayer(this.state, sessionId, now, id => {
         this.sculptureDecoySystem.removeOwner(this.state, id);
         if (infectHuman(this.state, id, now)) finishIfAllHumansInfected(this.state);
@@ -261,10 +271,11 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       if (!dashMoved) applyMovementWithBarriers(
         player,
         input,
-        PLAYER_SPEED * getPlayerSpeedMultiplier(player) * getPuddleSpeedMultiplier(this.state, player, now),
+        now < player.rootedUntil || player.trapCastEndsAt > now ? 0 : PLAYER_SPEED * getPlayerSpeedMultiplier(player) * getPuddleSpeedMultiplier(this.state, player, now),
         context.dt,
         player.role, this.state.bookBarriers.values(), now,
       );
+      this.engineeringTrapSystem.checkPlayer(this.state, player, now, dashMoved ? player : movementStart);
 
       if (interactionPressed && player.role === PLAYER_ROLE.zombie) {
         const target = resolveZombieAttack(this.state, sessionId, now);
@@ -297,6 +308,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.libraryBarrierSystem.update(this.state, now);
     if (this.state.phase === GAME_PHASE.finished) this.lateDashSystem.clear(this.state);
     if (this.state.phase === GAME_PHASE.finished) this.state.players.forEach(resetXmanDisguise);
+    this.engineeringTrapSystem.update(this.state, now);
+    this.clients.forEach(client => this.syncTrapView(client));
     this.humanDangerSystem.update(this.state, now, (id, update) => {
       if (this.dangerSubscribers.has(id)) this.clients.find(client => client.sessionId === id)?.send(DANGER_MESSAGES.update, update);
     });
@@ -329,6 +342,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.graduateTrackingSystem.clear();
     this.libraryBarrierSystem.clear(this.state);
     this.lateDashSystem.clear(this.state);
+    this.engineeringTrapSystem.clear(this.state);
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
       resetXmanDisguise(candidate);
@@ -356,6 +370,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = "";
     this.state.mapConfigError = "";
     this.fossilHideSystem.clear();
+    this.engineeringTrapSystem.clear(this.state);
     this.lateDashSystem.clear(this.state);
     this.libraryBarrierSystem.clear(this.state);
     this.graduateTrackingSystem.clear();
@@ -402,6 +417,20 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         client.view?.add(player);
       }
     });
+    this.syncTrapView(client);
+  }
+
+  private syncTrapView(client: Client): void {
+    const viewer = this.state.players.get(client.sessionId);
+    if (!viewer || !client.view) return;
+    const next = new Set<EngineeringTrapState>();
+    this.state.engineeringTraps.forEach(trap => {
+      if (canSeeEngineeringTrap(viewer, trap)) { client.view?.add(trap); next.add(trap); }
+    });
+    for (const trap of this.visibleTraps.get(client.sessionId) ?? []) {
+      if (!next.has(trap)) client.view.remove(trap);
+    }
+    this.visibleTraps.set(client.sessionId, next);
   }
 
   private setPlayerVisibleToOthers(

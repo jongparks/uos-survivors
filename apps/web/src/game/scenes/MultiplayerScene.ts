@@ -3,6 +3,7 @@ import Phaser from "phaser";
 
 import {
   CHARACTER_IDS,
+  ENGINEERING_TRAP_CONFIG,
   GRADUATE_TRACKING_MESSAGE,
   GRADUATE_ZOMBIE_CONFIG,
   type GraduateTrackingView,
@@ -263,6 +264,7 @@ export class MultiplayerScene extends Phaser.Scene {
         smoothMs: NETWORK_RATE.correctionSmoothMs,
         snap: TILE_SIZE * 2,
         step: (context, state, command) => {
+          if (state.trapCastEndsAt > Date.now() || state.rootedUntil > Date.now()) return;
           if (state.dashEndsAt > Date.now()) {
             const remaining = Math.max(0, TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles - Math.hypot(state.x - state.dashStartX, state.y - state.dashStartY));
             const speed = Math.min(TILE_SIZE * LATE_ZOMBIE_CONFIG.dashDistanceTiles / (LATE_ZOMBIE_CONFIG.dashDurationMs / 1000), remaining / context.dt);
@@ -334,7 +336,8 @@ export class MultiplayerScene extends Phaser.Scene {
     const isZombie = player.role === PLAYER_ROLE.zombie;
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
     const characterLabel =
-      player.characterId === CHARACTER_IDS.sportsStudent
+      player.characterId === CHARACTER_IDS.engineeringStudent ? "공대생 / ENGINEERING"
+        : player.characterId === CHARACTER_IDS.sportsStudent
         ? "스과생 / SPORTS SCIENCE"
         : player.characterId === CHARACTER_IDS.sculptureStudent
           ? "조각학도 / SCULPTURE"
@@ -371,6 +374,13 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.engineeringStudent && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(player.trapCastEndsAt > now ? "밤샘 제작 · 설치 중"
+        : player.trapCooldownEndsAt > now ? `밤샘 제작 · 재사용까지 ${Math.ceil((player.trapCooldownEndsAt - now) / 1000)}초`
+          : `[SHIFT] ${ENGINEERING_TRAP_CONFIG.skillName}`).setVisible(true);
+      return;
+    }
     if (player.characterId === CHARACTER_IDS.xmanZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(player.isDisguised ? `위장 중 · 남은 시간 ${(Math.max(0, player.disguiseEndsAt - now) / 1000).toFixed(1)}초  [SHIFT] 해제`
@@ -498,6 +508,12 @@ export class MultiplayerScene extends Phaser.Scene {
       g.lineStyle(3, 0x82ac29, 0.7).lineBetween(p.x, p.y, p.x - p.directionX * 12, p.y - p.directionY * 12);
     });
     this.room.state.players.forEach(p => {
+      if (p.rootedUntil > Date.now()) {
+        g.lineStyle(2, 0xe7bd70, 0.9).strokeEllipse(p.x, p.y + 10, 30, 12);
+      }
+      if (p.trapCastEndsAt > Date.now()) {
+        g.lineStyle(2, 0x77cfe7, 0.8).strokeCircle(p.x, p.y, 18);
+      }
       if (p.dashEndsAt > Date.now()) {
         for (let i = 3; i >= 1; i--) {
           g.fillStyle(0xffbf80, 0.09 * (4 - i)).fillEllipse(p.x - p.dashDirectionX * i * 10, p.y - p.dashDirectionY * i * 10, 22, 30);
@@ -548,6 +564,14 @@ export class MultiplayerScene extends Phaser.Scene {
     const g = this.barrierGraphics;
     if (!g) return;
     g.clear();
+    this.room.state.engineeringTraps.forEach(trap => {
+      if (Date.now() >= trap.expiresAt) return;
+      const armed = Date.now() >= trap.activatesAt;
+      g.fillStyle(0x294146, 0.9).fillRoundedRect(trap.x - 13, trap.y - 10, 26, 20, 4);
+      g.lineStyle(2, armed ? 0x8fe0ce : 0xd9ad69, 0.9).strokeRoundedRect(trap.x - 13, trap.y - 10, 26, 20, 4);
+      g.lineBetween(trap.x - 7, trap.y - 5, trap.x + 7, trap.y + 5);
+      g.lineBetween(trap.x - 7, trap.y + 5, trap.x + 7, trap.y - 5);
+    });
     this.room.state.bookBarriers.forEach(b => {
       const age = Math.min(1, Math.max(0, (Date.now() - b.createdAt) / 180));
       const scale = 0.85 + age * 0.15;

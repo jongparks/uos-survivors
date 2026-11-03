@@ -4,6 +4,7 @@ export const CHARACTER_IDS = {
   fossil: "HUMAN_001",
   sportsStudent: "HUMAN_002",
   sculptureStudent: "HUMAN_003",
+  engineeringStudent: "HUMAN_004",
   drunkenZombie: "ZOMBIE_001",
   normalZombie: "ZOMBIE_000",
   graduateZombie: "ZOMBIE_002",
@@ -18,6 +19,7 @@ export const HUMAN_CHARACTER_IDS = [
   CHARACTER_IDS.fossil,
   CHARACTER_IDS.sportsStudent,
   CHARACTER_IDS.sculptureStudent,
+  CHARACTER_IDS.engineeringStudent,
 ] as const satisfies readonly CharacterId[];
 
 export function isCharacterId(value: unknown): value is CharacterId {
@@ -141,6 +143,12 @@ export interface FossilHideSpotView {
   y: number;
   interactionRadius: number;
 }
+
+export const ENGINEERING_TRAP_CONFIG = {
+  characterId: CHARACTER_IDS.engineeringStudent, skillId: "ENGINEERING_TRAP", skillName: "밤샘 제작",
+  castTimeMs: 500, activationDelayMs: 500, lifetimeMs: 20_000, cooldownMs: 30_000,
+  rootDurationMs: 2_500, zombieVisibilityTiles: 1.5, maxActiveTraps: 1,
+} as const;
 
 export const DRUNKEN_ZOMBIE_CONFIG = {
   characterId: CHARACTER_IDS.drunkenZombie,
