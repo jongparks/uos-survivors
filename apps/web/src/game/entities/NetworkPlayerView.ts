@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import { CHARACTER_IDS, PLAYER_ACTIVITY, PLAYER_ROLE, type PlayerState } from "@uos-survivors/shared";
 
 import { TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
+import { NORMAL_ZOMBIE_DESIGN } from "../rendering/normalZombieDesign";
 
 export class NetworkPlayerView {
   readonly sprite: Phaser.GameObjects.Sprite;
@@ -12,6 +13,7 @@ export class NetworkPlayerView {
   private stopTimer?: Phaser.Time.TimerEvent;
   private useLeftStep = false;
   private destroyed = false;
+  private normalZombieDesignApplied = false;
 
   constructor(scene: Phaser.Scene, player: PlayerState, isLocalPlayer: boolean) {
     this.scene = scene;
@@ -38,10 +40,23 @@ export class NetworkPlayerView {
     const previousX = this.sprite.x;
     const moved = previousX !== x || this.sprite.y !== y;
     const movedLeft = x < previousX;
+    const isNormalZombie = player.role === PLAYER_ROLE.zombie && player.characterId === CHARACTER_IDS.normalZombie;
+
+    if (isNormalZombie !== this.normalZombieDesignApplied) {
+      this.stopTimer?.remove(false);
+      this.normalZombieDesignApplied = isNormalZombie;
+      if (isNormalZombie) {
+        this.sprite.setTexture(NORMAL_ZOMBIE_DESIGN.textureKey)
+          .setOrigin(NORMAL_ZOMBIE_DESIGN.originX, NORMAL_ZOMBIE_DESIGN.originY)
+          .setDisplaySize(NORMAL_ZOMBIE_DESIGN.displayWidth, NORMAL_ZOMBIE_DESIGN.displayHeight);
+      } else {
+        this.sprite.setTexture(TEXTURE_KEYS.playerIdle).setOrigin(0.5).setScale(1);
+      }
+    }
 
     this.sprite.setPosition(x, y);
     this.sprite.setTint(
-      player.role === PLAYER_ROLE.zombie
+      isNormalZombie ? 0xffffff : player.role === PLAYER_ROLE.zombie
         ? 0xff6f68
         : this.isLocalPlayer
           ? 0xffffff
@@ -49,7 +64,7 @@ export class NetworkPlayerView {
     );
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
     this.sprite.setAlpha(isHidden ? 0.24 : player.connected ? 1 : 0.42);
-    this.label.setPosition(x, y - 34);
+    this.label.setPosition(x, y - (isNormalZombie ? 48 : 34));
     this.label.setAlpha(isHidden ? 0.72 : player.connected ? 1 : 0.62);
     const roleLabel = player.role === PLAYER_ROLE.zombie
       ? player.characterId === CHARACTER_IDS.normalZombie ? "일반 좀비"
@@ -62,6 +77,12 @@ export class NetworkPlayerView {
         ? `[${roleLabel}] ${player.nickname}`
         : `[${roleLabel}] ${player.nickname} · 재접속 중`,
     );
+
+    if (isNormalZombie) {
+      // Only an idle drawing was supplied; keep its original artwork intact.
+      this.sprite.setFlipX(player.facingX < 0);
+      return;
+    }
 
     if (!moved) {
       return;

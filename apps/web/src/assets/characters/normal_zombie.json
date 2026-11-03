@@ -1,0 +1,65 @@
+{
+  "id": "normal_zombie",
+  "name_ko": "일반 좀비",
+  "name_en": "Normal Zombie",
+  "enemy_tier": "basic",
+  "lore_ko": "시험 기간 밤샘 중 캠퍼스에서 감염된 서울시립대학교(University of Seoul) 학생. 학생증과 이어폰을 그대로 하고 있다.",
+  "art": {
+    "style": "flat color vector, bold dark outline (3.5px at 400px width), no gradients, not pixel art",
+    "view": "front, idle pose (left arm limp, right arm reaching forward-right, head tilted)",
+    "source_vector": "normal_zombie.svg",
+    "canvas_px": { "width": 412, "height": 620 },
+    "pivot": { "x": 0.5, "y": 0.92, "note": "normalized, origin top-left; at the feet" },
+    "facing": "right (reaching arm points right); flip horizontally for left",
+    "sprites": {
+      "hires": "normal_zombie_hires.png",
+      "256": "normal_zombie_256px.png",
+      "128": "normal_zombie_128px.png",
+      "64": "normal_zombie_64px.png",
+      "32": "normal_zombie_32px.png"
+    },
+    "background": "transparent (RGBA PNG)",
+    "recommended_filtering": "linear/bilinear (not nearest-neighbor, since this is not pixel art)"
+  },
+  "palette": {
+    "skin": "#9DB39A",
+    "skin_shadow": "#7E9A7E",
+    "eye_socket": "#6C886F",
+    "vein": "#607B64",
+    "eye": "#EDE7B5",
+    "hoodie": "#3D4B6E",
+    "hoodie_shadow": "#2B3650",
+    "hoodie_pocket": "#33405E",
+    "hoodie_print": "#E5DFCC",
+    "jeans_left": "#56698A",
+    "jeans_right": "#4C5D78",
+    "backpack": "#B5523B",
+    "backpack_strap": "#8A3E2C",
+    "lanyard": "#3E8E8A",
+    "id_card": "#F1EEE4",
+    "shoe": "#E6E2D6",
+    "shoe_sole": "#BDB7A7",
+    "hair": "#2A2522",
+    "wound_blood": "#7A2620",
+    "blood_stain": "#6E1F1F",
+    "mouth": "#3A1E1E",
+    "outline": "#1A1E1C"
+  },
+  "identifying_features": [
+    "navy hoodie with 'UNIVERSITY OF SEOUL' chest lettering",
+    "student ID card on teal lanyard",
+    "rust-red backpack with both straps",
+    "cracked, crooked round glasses",
+    "one white earbud dangling from right ear",
+    "bite wound on exposed right forearm",
+    "grey-green skin, sunken eyes, pale yellow irises",
+    "torn left knee on jeans, untied right shoelace"
+  ],
+  "gameplay": {
+    "hp": "[TBD]",
+    "speed": "[TBD]",
+    "damage": "[TBD]",
+    "hitbox_note": "suggested body hitbox: x 0.30–0.68, y 0.14–0.92 of sprite (excludes reaching arm)"
+  },
+  "todo_animations": ["walk", "attack", "hit", "death"]
+}
