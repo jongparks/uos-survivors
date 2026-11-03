@@ -102,5 +102,6 @@ export function resolveZombieAttack(
   }
 
   attacker.nextAttackAt = now + COMBAT_RULES.zombieAttackCooldownMs;
+  attacker.lastBasicAttackAt = now;
   return findZombieAttackTarget(state, attackerSessionId);
 }

@@ -52,10 +52,13 @@ describe("zombie combat", () => {
 
     expect(resolveZombieAttack(state, "zombie", 1_000)).toBeNull();
     expect(zombie.nextAttackAt).toBe(1_000 + COMBAT_RULES.zombieAttackCooldownMs);
+    expect(zombie.lastBasicAttackAt).toBe(1_000);
     expect(resolveZombieAttack(state, "zombie", 1_001)).toBeNull();
     addPlayer(state, "human", PLAYER_ROLE.human, 140, 100);
     expect(resolveZombieAttack(state, "zombie", 2_999)).toBeNull();
+    expect(zombie.lastBasicAttackAt).toBe(1_000);
     expect(resolveZombieAttack(state, "zombie", 3_000)).toEqual({ type: "human", id: "human" });
+    expect(zombie.lastBasicAttackAt).toBe(3_000);
   });
 
   it("does not expose a hidden Fossil as an attack target", () => {

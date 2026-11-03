@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-import { CHARACTER_IDS, PLAYER_ACTIVITY, PLAYER_ROLE, type PlayerState } from "@uos-survivors/shared";
+import { CHARACTER_IDS, PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_SPEED, type PlayerState } from "@uos-survivors/shared";
 
 import { TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
 import { NORMAL_ZOMBIE_DESIGN } from "../rendering/normalZombieDesign";
@@ -14,10 +14,18 @@ export class NetworkPlayerView {
   private useLeftStep = false;
   private destroyed = false;
   private normalZombieDesignApplied = false;
+  private worldX: number;
+  private worldY: number;
+  private gaitPhase = 0;
+  private motionWeight = 0;
+  private observedAttackAt = 0;
+  private attackDirection = { x: 1, y: 0 };
 
   constructor(scene: Phaser.Scene, player: PlayerState, isLocalPlayer: boolean) {
     this.scene = scene;
     this.isLocalPlayer = isLocalPlayer;
+    this.worldX = player.x;
+    this.worldY = player.y;
 
     this.sprite = scene.add.sprite(player.x, player.y, TEXTURE_KEYS.playerIdle).setDepth(10);
     this.label = scene.add
@@ -37,8 +45,12 @@ export class NetworkPlayerView {
       return;
     }
 
-    const previousX = this.sprite.x;
-    const moved = previousX !== x || this.sprite.y !== y;
+    // Track world positions separately so visual bob/lunge never creates fake movement.
+    const previousX = this.worldX;
+    const distance = Math.hypot(x - this.worldX, y - this.worldY);
+    const moved = distance > 0.01;
+    this.worldX = x;
+    this.worldY = y;
     const movedLeft = x < previousX;
     const isNormalZombie = player.role === PLAYER_ROLE.zombie && player.characterId === CHARACTER_IDS.normalZombie;
 
@@ -79,10 +91,12 @@ export class NetworkPlayerView {
     );
 
     if (isNormalZombie) {
-      // Only an idle drawing was supplied; keep its original artwork intact.
-      this.sprite.setFlipX(player.facingX < 0);
+      if (player.facingX !== 0) this.sprite.setFlipX(player.facingX < 0);
+      this.animateMotion(player, x, y, distance, true);
       return;
     }
+
+    this.animateMotion(player, x, y, distance, false);
 
     if (!moved) {
       return;
@@ -101,6 +115,30 @@ export class NetworkPlayerView {
       this.sprite.stop();
       this.sprite.setTexture(TEXTURE_KEYS.playerIdle);
     });
+  }
+
+  private animateMotion(player: PlayerState, x: number, y: number, distance: number, detailed: boolean): void {
+    const dt = Math.min(0.05, Math.max(0.001, this.scene.game.loop.delta / 1000));
+    const active = player.connected && player.activity !== PLAYER_ACTIVITY.hidden && Date.now() >= player.stunnedUntil;
+    const speed = active && distance < 64 ? Math.min(1.6, distance / dt / PLAYER_SPEED) : 0;
+    this.motionWeight = Phaser.Math.Linear(this.motionWeight, speed, 1 - Math.exp(-dt * 16));
+    this.gaitPhase += Math.min(distance, 12) * 0.16;
+    const sway = Math.sin(this.gaitPhase);
+    const bob = -Math.abs(Math.sin(this.gaitPhase)) * 1.6 * this.motionWeight;
+    if (player.lastBasicAttackAt !== this.observedAttackAt) {
+      this.observedAttackAt = player.lastBasicAttackAt;
+      const length = Math.hypot(player.facingX, player.facingY) || 1;
+      this.attackDirection = { x: player.facingX / length, y: player.facingY / length };
+    }
+    const age = Date.now() - player.lastBasicAttackAt;
+    const attack = active && player.lastBasicAttackAt > 0 && age >= 0 && age < 240
+      ? Math.sin(Math.PI * age / 240) : 0;
+    const direction = this.attackDirection;
+    this.sprite.setPosition(x + direction.x * attack * 5, y + (detailed ? bob : 0) + direction.y * attack * 5);
+    this.sprite.setAngle((detailed ? sway * 2.2 * this.motionWeight : 0) + direction.x * attack * 7);
+    const width = detailed ? NORMAL_ZOMBIE_DESIGN.displayWidth : 36;
+    const height = detailed ? NORMAL_ZOMBIE_DESIGN.displayHeight : 42;
+    this.sprite.setDisplaySize(width * (1 + attack * 0.025), height * (1 - attack * 0.025));
   }
 
   destroy(): void {

@@ -29,6 +29,7 @@ export const PlayerState = schema(
     facingX: t.float32().default(1),
     facingY: t.float32().default(0),
     nextAttackAt: t.float64().default(0),
+    lastBasicAttackAt: t.float64().default(0),
     attackLockedUntil: t.float64().default(0),
     stunnedUntil: t.float64().default(0),
     vomitCastEndsAt: t.float64().default(0),

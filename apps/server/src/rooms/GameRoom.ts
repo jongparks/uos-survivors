@@ -154,6 +154,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         player.characterId = pickInitialZombieCharacter(Math.random());
         player.attackLockedUntil = 0;
         player.nextAttackAt = 0;
+        player.lastBasicAttackAt = 0;
         player.stunnedUntil = 0;
         this.state.initialZombieSessionId = sessionId;
         this.setPlayerVisibleToOthers(sessionId, player, true);
@@ -301,6 +302,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     player.role = PLAYER_ROLE.zombie;
     player.attackLockedUntil = 0;
     player.nextAttackAt = 0;
+    player.lastBasicAttackAt = 0;
     this.state.initialZombieSessionId = sessionId;
     this.state.winner = MATCH_WINNER.none;
     this.state.phase = GAME_PHASE.playing;
@@ -323,6 +325,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       player.characterId = UNASSIGNED_CHARACTER_ID;
       player.attackLockedUntil = 0;
       player.nextAttackAt = 0;
+      player.lastBasicAttackAt = 0;
       player.stunnedUntil = 0;
     });
     this.state.players.forEach((player, sessionId) => {
