@@ -30,6 +30,7 @@ export const PlayerState = schema(
     facingY: t.float32().default(0),
     nextAttackAt: t.float64().default(0),
     lastBasicAttackAt: t.float64().default(0),
+    barrierCooldownEndsAt: t.float64().default(0),
     attackLockedUntil: t.float64().default(0),
     stunnedUntil: t.float64().default(0),
     vomitCastEndsAt: t.float64().default(0),
@@ -62,6 +63,11 @@ export const VomitPuddleState = schema({
   radius: t.float32(), createdAt: t.float64(), expiresAt: t.float64(),
 }, "VomitPuddleState");
 
+export const BookBarrierState = schema({
+  ownerSessionId: t.string(), x: t.float32(), y: t.float32(), width: t.float32(), height: t.float32(),
+  createdAt: t.float64(), expiresAt: t.float64(),
+}, "BookBarrierState");
+
 export const GameState = schema(
   {
     roomCode: t.string().default(""),
@@ -74,6 +80,7 @@ export const GameState = schema(
     decoys: t.map(SculptureDecoyState),
     vomitProjectiles: t.map(VomitProjectileState),
     vomitPuddles: t.map(VomitPuddleState),
+    bookBarriers: t.map(BookBarrierState),
   },
   "GameState",
 );

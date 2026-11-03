@@ -6,7 +6,7 @@ import {
   PLAYER_SPEED,
   SCULPTURE_STUDENT_CONFIG,
   SculptureDecoyState,
-  applyMovementWithTestMapCollision,
+  applyMovementWithBarriers,
   type GameState,
   type MovementAxes,
   type PlayerState,
@@ -115,11 +115,12 @@ export class SculptureDecoySystem {
         current = movement;
       }
 
-      applyMovementWithTestMapCollision(
+      applyMovementWithBarriers(
         decoy,
         current,
         PLAYER_SPEED * SCULPTURE_STUDENT_CONFIG.decoySpeedMultiplier,
         deltaSeconds,
+        PLAYER_ROLE.human, state.bookBarriers.values(), now,
       );
     }
   }

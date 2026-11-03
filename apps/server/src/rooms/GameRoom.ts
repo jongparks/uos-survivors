@@ -21,7 +21,8 @@ import {
   RECONNECTION,
   ROOM_VISIBILITY,
   UNASSIGNED_CHARACTER_ID,
-  applyMovementWithTestMapCollision,
+  applyMovementWithBarriers,
+  LIBRARY_PLACEMENT_FAILED_MESSAGE,
   pickRandomHumanCharacter,
   pickInitialZombieCharacter,
   tileToWorld,
@@ -37,6 +38,7 @@ import { finishIfAllHumansInfected, infectHuman } from "../systems/infectionSyst
 import { SculptureDecoySystem } from "../systems/sculptureDecoySystem.js";
 import { VomitSystem } from "../systems/vomitSystem.js";
 import { GraduateTrackingSystem } from "../systems/graduateTrackingSystem.js";
+import { LibraryBarrierSystem } from "../systems/libraryBarrierSystem.js";
 import {
   getPlayerSpeedMultiplier,
   resetSportsSprint,
@@ -60,6 +62,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly sculptureDecoySystem = new SculptureDecoySystem();
   private readonly vomitSystem = new VomitSystem();
   private readonly graduateTrackingSystem = new GraduateTrackingSystem();
+  private readonly libraryBarrierSystem = new LibraryBarrierSystem();
   private readonly interactionHeld = new Map<string, boolean>();
   private readonly skillHeld = new Map<string, boolean>();
   private readonly hideSpotSubscribers = new Set<string>();
@@ -170,6 +173,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
   private simulate(context: StepContext): void {
     const now = Date.now();
+    this.libraryBarrierSystem.update(this.state, now);
 
     this.state.players.forEach((player, sessionId) => {
       const inputChannel = this.inputs.get(sessionId);
@@ -218,6 +222,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.sculptureDecoySystem.tryActivate(this.state, sessionId, now);
         this.vomitSystem.tryActivate(this.state, sessionId, now);
         this.graduateTrackingSystem.tryActivate(this.state, sessionId, now);
+        if (player.characterId === CHARACTER_IDS.libraryNpc && !this.libraryBarrierSystem.tryActivate(this.state, sessionId, now)) {
+          this.clients.find(client => client.sessionId === sessionId)?.send(LIBRARY_PLACEMENT_FAILED_MESSAGE);
+        }
       }
 
       if (!player.vomitCastEndsAt && (input.moveX !== 0 || input.moveY !== 0)) {
@@ -226,11 +233,12 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         player.facingY = input.moveY / magnitude;
       }
 
-      applyMovementWithTestMapCollision(
+      applyMovementWithBarriers(
         player,
         input,
         PLAYER_SPEED * getPlayerSpeedMultiplier(player) * getPuddleSpeedMultiplier(this.state, player, now),
         context.dt,
+        player.role, this.state.bookBarriers.values(), now,
       );
 
       if (interactionPressed && player.role === PLAYER_ROLE.zombie) {
@@ -261,6 +269,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         if (view.cooldownEndsAt > 0) client.send(GRADUATE_TRACKING_MESSAGE, view);
       }
     });
+    this.libraryBarrierSystem.update(this.state, now);
   }
 
   private tryStartMatch(): void {
@@ -288,6 +297,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.sculptureDecoySystem.clear(this.state);
     this.vomitSystem.clear(this.state);
     this.graduateTrackingSystem.clear();
+    this.libraryBarrierSystem.clear(this.state);
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
       this.fossilHideSystem.resetPlayer(candidate);
@@ -314,6 +324,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.initialZombieSessionId = "";
     this.state.mapConfigError = "";
     this.fossilHideSystem.clear();
+    this.libraryBarrierSystem.clear(this.state);
     this.graduateTrackingSystem.clear();
     this.vomitSystem.clear(this.state);
     this.sculptureDecoySystem.clear(this.state);

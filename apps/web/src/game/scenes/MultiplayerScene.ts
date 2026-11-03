@@ -22,7 +22,8 @@ import {
   TEST_MAP_WIDTH,
   TILE_INDEX,
   TILE_SIZE,
-  applyMovementWithTestMapCollision,
+  applyMovementWithBarriers,
+  LIBRARY_PLACEMENT_FAILED_MESSAGE,
   getCharacterSpeedMultiplier,
   getPuddleSpeedMultiplier,
   type FossilHideSpotView,
@@ -58,6 +59,8 @@ export class MultiplayerScene extends Phaser.Scene {
   private disposed = false;
   private vomitGraphics?: Phaser.GameObjects.Graphics;
   private trackingGraphics?: Phaser.GameObjects.Graphics;
+  private barrierGraphics?: Phaser.GameObjects.Graphics;
+  private placementFailedUntil = 0;
   private tracking: GraduateTrackingView = { target: null, trackingEndsAt: 0, cooldownEndsAt: 0 };
 
   constructor(room: ConnectedGameRoom) {
@@ -80,6 +83,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.createMap();
     this.vomitGraphics = this.add.graphics().setDepth(7);
     this.trackingGraphics = this.add.graphics().setScrollFactor(0).setDepth(90);
+    this.barrierGraphics = this.add.graphics().setDepth(8);
     this.keyboardInput = new KeyboardInput(this);
     this.movementInput = this.room.input({ type: MovementInput, mode: "reliable" });
     this.predict = Predict.get(this.room, {
@@ -102,6 +106,7 @@ export class MultiplayerScene extends Phaser.Scene {
 
     const callbacks = Callbacks.get(this.room);
     this.callbackDisposers.push(
+      this.room.onMessage(LIBRARY_PLACEMENT_FAILED_MESSAGE, () => { this.placementFailedUntil = Date.now() + 1800; }),
       this.room.onMessage<GraduateTrackingView>(GRADUATE_TRACKING_MESSAGE, view => {
         if (!this.disposed) this.tracking = view;
       }),
@@ -209,6 +214,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.renderDecoys();
     this.renderVomit();
     this.renderTracking();
+    this.renderBookBarriers();
   }
 
   private createMap(): void {
@@ -256,11 +262,12 @@ export class MultiplayerScene extends Phaser.Scene {
         snap: TILE_SIZE * 2,
         step: (context, state, command) => {
           const speedMultiplier = getCharacterSpeedMultiplier(state.characterId, state.role, state.sprintState);
-          applyMovementWithTestMapCollision(
+          applyMovementWithBarriers(
             state,
             command,
             Date.now() < state.stunnedUntil ? 0 : PLAYER_SPEED * speedMultiplier * getPuddleSpeedMultiplier(this.room.state, state, Date.now()),
             context.dt,
+            state.role, this.room.state.bookBarriers.values(), Date.now(),
           );
         },
       });
@@ -349,12 +356,19 @@ export class MultiplayerScene extends Phaser.Scene {
             ? `ROLE · ZOMBIE · ATTACK LOCK ${attackLockSeconds.toFixed(1)}s`
             : player.characterId === CHARACTER_IDS.normalZombie
               ? `ROLE · ZOMBIE · 일반 좀비 · ${basicAttackLabel}`
-              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
+              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.libraryNpc && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(now < this.placementFailedUntil ? "이 위치에는 설치할 수 없습니다."
+        : now < player.barrierCooldownEndsAt ? `자리 맡아놨습니다 · 재사용까지 ${Math.ceil((player.barrierCooldownEndsAt - now) / 1000)}초`
+          : "[SHIFT] 자리 맡아놨습니다").setVisible(true);
+      return;
+    }
     if (player.characterId === CHARACTER_IDS.graduateZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(this.tracking.target && now < this.tracking.trackingEndsAt
@@ -502,6 +516,28 @@ export class MultiplayerScene extends Phaser.Scene {
     g.lineBetween(px + ux * 6, py + uy * 6, px + uy * 4, py - ux * 4);
   }
 
+  private renderBookBarriers(): void {
+    const g = this.barrierGraphics;
+    if (!g) return;
+    g.clear();
+    this.room.state.bookBarriers.forEach(b => {
+      const age = Math.min(1, Math.max(0, (Date.now() - b.createdAt) / 180));
+      const scale = 0.85 + age * 0.15;
+      const left = b.x - b.width * scale / 2, top = b.y - b.height * scale / 2;
+      g.fillStyle(0x141713, 0.5).fillRoundedRect(left, top + 5, b.width * scale, b.height * scale, 5);
+      const colors = [0x965b45, 0x547d77, 0xc5a25d, 0x5c658d];
+      for (let row = 0; row < 3; row++) {
+        for (let col = 0; col < 2; col++) {
+          const x = left + 3 + col * b.width * scale / 2 + (row % 2 ? 2 : 0);
+          const y = top + 3 + row * 13 * scale;
+          g.fillStyle(colors[(row + col) % colors.length]!, age).fillRoundedRect(x, y, b.width * scale / 2 - 8, 11 * scale, 2);
+          g.lineStyle(2, 0xe4d8ba, age * 0.8).lineBetween(x + 5, y + 7 * scale, x + b.width * scale / 2 - 13, y + 7 * scale);
+        }
+      }
+      g.lineStyle(1, 0xe9c575, age * 0.6).strokeRect(b.x - b.width / 2, b.y - b.height / 2, b.width, b.height);
+    });
+  }
+
   private clearFossilHideSpotMarkers(): void {
     this.fossilHideSpotMarkers.forEach(({ ring, dot, tween }) => {
       tween.stop();
@@ -532,6 +568,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.predict?.dispose();
     this.vomitGraphics?.destroy();
     this.trackingGraphics?.destroy();
+    this.barrierGraphics?.destroy();
     this.callbackDisposers.splice(0).forEach((dispose) => dispose());
     this.playerViews.forEach((view) => view.destroy());
     this.playerViews.clear();

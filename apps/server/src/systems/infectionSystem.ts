@@ -38,6 +38,7 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
   player.attackLockedUntil = now + COMBAT_RULES.infectionAttackLockMs;
   player.nextAttackAt = player.attackLockedUntil;
   player.lastBasicAttackAt = 0;
+  player.barrierCooldownEndsAt = 0;
   return true;
 }
 

@@ -19,6 +19,7 @@ import {
   CHARACTER_IDS,
   SPECIAL_ZOMBIE_CHARACTER_IDS,
   GRADUATE_TRACKING_MESSAGE,
+  LIBRARY_PLACEMENT_FAILED_MESSAGE,
 } from "@uos-survivors/shared";
 
 const webDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -225,6 +226,7 @@ try {
   let tracking;
   let guestTrackingPackets = 0;
   privateHostRoom.onMessage(GRADUATE_TRACKING_MESSAGE, view => { tracking = view; });
+  privateHostRoom.onMessage(LIBRARY_PLACEMENT_FAILED_MESSAGE, () => {});
   invitedPrivateGuest.onMessage(GRADUATE_TRACKING_MESSAGE, () => { guestTrackingPackets++; });
   privateInput.data.moveX = 0;
   privateInput.data.useSkill = true;
@@ -236,6 +238,9 @@ try {
   if (privateHostRoom.state.players.get(privateHostRoom.sessionId)?.characterId === CHARACTER_IDS.graduateZombie) {
     await waitUntil(() => tracking?.target?.id === invitedPrivateGuest.sessionId, "Graduate did not privately track the nearest human");
     if (guestTrackingPackets !== 0) throw new Error("Tracking leaked to another client");
+    privateInput.data.interact = true; privateInput.send();
+  }
+  if (privateHostRoom.state.players.get(privateHostRoom.sessionId)?.characterId === CHARACTER_IDS.libraryNpc) {
     privateInput.data.interact = true; privateInput.send();
   }
 

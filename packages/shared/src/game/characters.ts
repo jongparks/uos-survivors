@@ -7,6 +7,7 @@ export const CHARACTER_IDS = {
   drunkenZombie: "ZOMBIE_001",
   normalZombie: "ZOMBIE_000",
   graduateZombie: "ZOMBIE_002",
+  libraryNpc: "ZOMBIE_003",
 } as const;
 export type CharacterId = (typeof CHARACTER_IDS)[keyof typeof CHARACTER_IDS];
 export const UNASSIGNED_CHARACTER_ID = "";
@@ -27,7 +28,7 @@ export function pickRandomHumanCharacter(randomValue: number): CharacterId {
   return HUMAN_CHARACTER_IDS[index] ?? CHARACTER_IDS.fossil;
 }
 
-export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie] as const;
+export const SPECIAL_ZOMBIE_CHARACTER_IDS = [CHARACTER_IDS.drunkenZombie, CHARACTER_IDS.graduateZombie, CHARACTER_IDS.libraryNpc] as const;
 
 export function pickInitialZombieCharacter(randomValue: number): CharacterId {
   const index = Math.floor(Math.min(0.999_999, Math.max(0, randomValue)) * SPECIAL_ZOMBIE_CHARACTER_IDS.length);
@@ -163,6 +164,13 @@ export const GRADUATE_ZOMBIE_CONFIG = {
   offscreenIndicatorMarginPx: 20,
 } as const;
 export const GRADUATE_TRACKING_MESSAGE = "graduate:tracking";
+export const LIBRARY_PLACEMENT_FAILED_MESSAGE = "library:placement-failed";
+export const LIBRARY_NPC_CONFIG = {
+  characterId: CHARACTER_IDS.libraryNpc, skillId: "RESERVED_SEAT", skillName: "자리 맡아놨습니다",
+  activationKey: "SHIFT", placementRangeTiles: 2, barrierWidthTiles: 2, barrierHeightTiles: 1,
+  barrierDurationMs: 12_000, cooldownMs: 30_000, maxActiveBarriers: 1,
+  blocksHumans: true, blocksZombies: false, damageHumans: false, destructible: false,
+} as const;
 export interface GraduateTrackingView {
   target: { id: string; x: number; y: number } | null;
   trackingEndsAt: number;
