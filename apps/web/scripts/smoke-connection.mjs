@@ -60,6 +60,11 @@ try {
     nickname: "CampusGuest", visibility: ROOM_VISIBILITY.public, mapId: DEFAULT_MAP_ID,
   }));
   if (campusGuest.roomId !== campusHost.roomId) throw new Error("Campus quick join did not match the selected map");
+  const nightOptions = { visibility: ROOM_VISIBILITY.public, mapId: "MAP_UOS_CAMPUS_NIGHT" };
+  const nightHost = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, { ...nightOptions, nickname: "NightHost" }));
+  const nightGuest = track(await new Client(endpoint).joinOrCreate(ROOM_NAMES.game, { ...nightOptions, nickname: "NightGuest" }));
+  await waitUntil(() => nightHost.state.mapId === nightOptions.mapId, "Night campus map was not synchronized");
+  if (nightHost.roomId === campusHost.roomId || nightGuest.roomId !== nightHost.roomId) throw new Error("Night campus quick join did not match the selected map");
   for (let i = 0; i < 2; i++) track(await new Client(endpoint).joinById(campusHost.roomId, { nickname: "Campus" + i }));
   campusHost.send(MATCH_MESSAGES.start);
   await waitUntil(() => campusHost.state.phase === GAME_PHASE.playing, "Campus match did not start");

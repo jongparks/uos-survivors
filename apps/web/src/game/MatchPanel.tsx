@@ -18,11 +18,13 @@ export function MatchPanel({ room }: { room: ConnectedGameRoom }) {
   if (snapshot.phase === GAME_PHASE.waiting) {
     const host = snapshot.host === room.sessionId;
     return <section className="match-panel" aria-label="게임 시작 대기">
+      <p className="document-kicker">SURVIVOR ASSEMBLY · 집결 현황</p>
+      <h2>생존자 집결 중</h2>
       <strong>참가자 {snapshot.count} / 8명 · 최소 4명</strong>
       <p>게임 시작 시 진영과 캐릭터가 무작위로 배정됩니다.</p>
       {host ? <button disabled={snapshot.count < COMBAT_RULES.minimumPlayersToStart} onClick={() => room.send(MATCH_MESSAGES.start)}>현재 {snapshot.count}명으로 시작</button>
         : <p>방장이 게임을 시작하기를 기다리는 중입니다.</p>}
-      {snapshot.error ? <p role="alert">{snapshot.error}</p> : null}
+      {snapshot.error ? <p className="form-error" role="alert">{snapshot.error}</p> : null}
     </section>;
   }
   const key = `${room.sessionId}:${snapshot.started}`;
@@ -30,6 +32,8 @@ export function MatchPanel({ room }: { room: ConnectedGameRoom }) {
   if (snapshot.phase !== GAME_PHASE.playing || !profile || acknowledged === key) return null;
   const human = profile.team === "HUMAN";
   return <section className="match-panel character-intro" aria-label="내 캐릭터 소개">
+    <p className="document-kicker">PERSONNEL RECORD · 배정 기록</p>
+    <h2>나의 생존 기록</h2>
     <strong>{human ? "인간" : "좀비"} · {profile.name}</strong>
     <p>{profile.ability ? `고유 능력: ${profile.ability}` : "고유 능력 없음"}</p>
     <p>{profile.description}</p>
