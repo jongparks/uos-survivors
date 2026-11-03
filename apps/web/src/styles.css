@@ -269,6 +269,26 @@ h1 {
   overflow: hidden;
 }
 
+.confusion-overlay {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  max-width: min(280px, 45%);
+  border: 1px solid #b18ce4;
+  border-radius: 8px;
+  color: #eadbff;
+  background: #1c1235e8;
+  pointer-events: none;
+  font-size: 12px;
+}
+
+.confusion-directions { font-family: monospace; line-height: 1.6; }
+.confusion-overlay progress { width: 100%; height: 8px; accent-color: #bd91ff; }
+
 .danger-vignette-fill {
   width: 100%;
   height: 100%;

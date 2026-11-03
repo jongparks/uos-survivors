@@ -1,6 +1,12 @@
 import { PLAYER_ROLE } from "./rules.js";
 import { DRUNKEN_ZOMBIE_CONFIG } from "./characters.js";
 import type { GameState, PlayerState } from "../state/gameState.js";
+import type { MovementAxes } from "../messages/index.js";
+
+export function getConfusedMovement(player: PlayerState, input: MovementAxes, now: number): MovementAxes {
+  const multiplier = player.role === PLAYER_ROLE.zombie && now < player.confusionEndsAt ? -1 : 1;
+  return { moveX: input.moveX * multiplier, moveY: input.moveY * multiplier };
+}
 
 export function getPuddleSpeedMultiplier(state: GameState, player: PlayerState, now: number): number {
   if (player.role !== PLAYER_ROLE.human) return 1;

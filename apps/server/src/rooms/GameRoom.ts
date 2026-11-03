@@ -29,6 +29,7 @@ import {
   pickInitialZombieCharacter,
   tileToWorld,
   getPuddleSpeedMultiplier,
+  getConfusedMovement,
   type RoomVisibility,
 } from "@uos-survivors/shared";
 
@@ -45,6 +46,7 @@ import { LateDashSystem } from "../systems/lateDashSystem.js";
 import { HumanDangerSystem, calculateHumanDanger } from "../systems/humanDangerSystem.js";
 import { EngineeringTrapSystem, canSeeEngineeringTrap } from "../systems/engineeringTrapSystem.js";
 import { ComputerRewindSystem } from "../systems/computerRewindSystem.js";
+import { tryActivateSocraticMethod, updateConfusion, resetPhilosophyState } from "../systems/philosophyConfusionSystem.js";
 import { resetXmanDisguise, updateXmanDisguise, tryToggleXmanDisguise } from "../systems/xmanDisguiseSystem.js";
 import {
   getPlayerSpeedMultiplier,
@@ -212,6 +214,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
       updateSportsSprint(player, now);
       updateXmanDisguise(player, now);
+      updateConfusion(player, now);
       this.computerRewindSystem.record(this.state, sessionId, now);
       this.engineeringTrapSystem.checkPlayer(this.state, player, now);
 
@@ -256,6 +259,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
         this.lateDashSystem.tryActivate(this.state, sessionId, now);
         this.engineeringTrapSystem.tryActivate(this.state, sessionId, now);
         if (this.computerRewindSystem.tryActivate(this.state, sessionId, now)) this.humanDangerSystem.invalidate();
+        tryActivateSocraticMethod(this.state, sessionId, now);
         tryToggleXmanDisguise(this.state, sessionId, now);
         if (player.characterId === CHARACTER_IDS.libraryNpc && !this.libraryBarrierSystem.tryActivate(this.state, sessionId, now)) {
           this.clients.find(client => client.sessionId === sessionId)?.send(LIBRARY_PLACEMENT_FAILED_MESSAGE);
@@ -263,20 +267,21 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       }
 
       const movementStart = { x: player.x, y: player.y };
+      const movementInput = getConfusedMovement(player, input, now);
       const dashMoved = this.lateDashSystem.updatePlayer(this.state, sessionId, now, id => {
         this.sculptureDecoySystem.removeOwner(this.state, id);
         if (infectHuman(this.state, id, now)) finishIfAllHumansInfected(this.state);
       }, (id, attacker) => this.sculptureDecoySystem.hitDecoy(this.state, id, attacker, now));
 
-      if (!dashMoved && !player.vomitCastEndsAt && (input.moveX !== 0 || input.moveY !== 0)) {
-        const magnitude = Math.hypot(input.moveX, input.moveY);
-        player.facingX = input.moveX / magnitude;
-        player.facingY = input.moveY / magnitude;
+      if (!dashMoved && !player.vomitCastEndsAt && (movementInput.moveX !== 0 || movementInput.moveY !== 0)) {
+        const magnitude = Math.hypot(movementInput.moveX, movementInput.moveY);
+        player.facingX = movementInput.moveX / magnitude;
+        player.facingY = movementInput.moveY / magnitude;
       }
 
       if (!dashMoved) applyMovementWithBarriers(
         player,
-        input,
+        movementInput,
         now < player.rootedUntil || player.trapCastEndsAt > now ? 0 : PLAYER_SPEED * getPlayerSpeedMultiplier(player) * getPuddleSpeedMultiplier(this.state, player, now),
         context.dt,
         player.role, this.state.bookBarriers.values(), now,
@@ -314,6 +319,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.libraryBarrierSystem.update(this.state, now);
     if (this.state.phase === GAME_PHASE.finished) this.lateDashSystem.clear(this.state);
     if (this.state.phase === GAME_PHASE.finished) this.state.players.forEach(resetXmanDisguise);
+    if (this.state.phase === GAME_PHASE.finished) this.state.players.forEach(resetPhilosophyState);
     this.engineeringTrapSystem.update(this.state, now);
     this.clients.forEach(client => this.syncTrapView(client));
     this.humanDangerSystem.update(this.state, now, (id, update) => {
@@ -352,6 +358,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.computerRewindSystem.clear(this.state);
     this.state.players.forEach((candidate, candidateSessionId) => {
       resetSportsSprint(candidate);
+      resetPhilosophyState(candidate);
       resetXmanDisguise(candidate);
       this.fossilHideSystem.resetPlayer(candidate);
       this.sculptureDecoySystem.resetPlayer(candidate);
@@ -388,6 +395,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.players.forEach((player) => {
       this.fossilHideSystem.resetPlayer(player);
       resetSportsSprint(player);
+      resetPhilosophyState(player);
       resetXmanDisguise(player);
       this.sculptureDecoySystem.resetPlayer(player);
       player.role = PLAYER_ROLE.human;

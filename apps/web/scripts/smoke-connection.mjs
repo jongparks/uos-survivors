@@ -13,6 +13,7 @@ import {
   MovementInput,
   NETWORK_RATE,
   PLAYER_SPEED,
+  TILE_SIZE,
   getCharacterSpeedMultiplier,
   PLAYER_ROLE,
   ROOM_NAMES,
@@ -337,14 +338,36 @@ try {
   const computerRoom = rooms.find(room => room.roomId === publicHostRoom.roomId &&
     room.state.players.get(room.sessionId)?.characterId === CHARACTER_IDS.computerStudent);
   if (computerRoom) {
-    await delay(3100);
     const rewindInput = computerRoom.input({ type: MovementInput, mode: "reliable" });
+    // The host may have walked into this guest's original spawn; first leave
+    // that overlap so the rewind destination satisfies player-body collision.
+    for (let tick = 0; tick < 10; tick++) {
+      rewindInput.data.moveY = 1; rewindInput.send(); await delay(35);
+    }
+    rewindInput.data.moveY = 0; rewindInput.send();
+    await delay(3100);
     rewindInput.data.useSkill = true; rewindInput.send();
     await waitUntil(() => (publicHostRoom.state.players.get(computerRoom.sessionId)?.lastRewindAt ?? 0) > 0,
       "Computer Student rewind did not synchronize to another player");
     const rewound = publicHostRoom.state.players.get(computerRoom.sessionId);
     if (rewound.role !== PLAYER_ROLE.human || rewound.rewindCooldownEndsAt - rewound.lastRewindAt !== 40000) {
       throw new Error("Rewind changed team or failed to start its cooldown");
+    }
+  }
+
+  const philosophyRoom = rooms.find(room => room.roomId === publicHostRoom.roomId &&
+    room.state.players.get(room.sessionId)?.characterId === CHARACTER_IDS.philosophyStudent);
+  if (philosophyRoom) {
+    const philosopher = publicHostRoom.state.players.get(philosophyRoom.sessionId);
+    const target = publicHostRoom.state.players.get(publicHostRoom.sessionId);
+    if (Math.hypot(philosopher.x - target.x, philosopher.y - target.y) <= 3 * TILE_SIZE) {
+      const philosophyInput = philosophyRoom.input({ type: MovementInput, mode: "reliable" });
+      philosophyInput.data.useSkill = true; philosophyInput.send();
+      await waitUntil(() => target.confusionEndsAt > Date.now(), "Philosophy confusion did not synchronize to zombie");
+      const before = target.x;
+      hostInput.data.moveX = 1; hostInput.send();
+      await waitUntil(() => target.x < before, "Confusion did not reverse server movement");
+      hostInput.data.moveX = 0; hostInput.send();
     }
   }
 

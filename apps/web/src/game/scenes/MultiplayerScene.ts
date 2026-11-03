@@ -5,6 +5,8 @@ import {
   CHARACTER_IDS,
   ENGINEERING_TRAP_CONFIG,
   COMPUTER_STUDENT_CONFIG,
+  PHILOSOPHY_STUDENT_CONFIG,
+  getConfusedMovement,
   GRADUATE_TRACKING_MESSAGE,
   GRADUATE_ZOMBIE_CONFIG,
   type GraduateTrackingView,
@@ -51,6 +53,7 @@ export class MultiplayerScene extends Phaser.Scene {
   private readonly room: ConnectedGameRoom;
   private readonly playerViews = new Map<string, NetworkPlayerView>();
   private readonly decoyViews = new Map<string, NetworkDecoyView>();
+  private readonly confusionLabels = new Map<string, Phaser.GameObjects.Text>();
   private readonly callbackDisposers: Array<() => void> = [];
   private keyboardInput?: KeyboardInput;
   private movementInput?: InputHandle<MovementInput>;
@@ -276,7 +279,7 @@ export class MultiplayerScene extends Phaser.Scene {
           const speedMultiplier = getCharacterSpeedMultiplier(state.characterId, state.role, state.sprintState, state.isDisguised);
           applyMovementWithBarriers(
             state,
-            command,
+            getConfusedMovement(state, command, Date.now()),
             Date.now() < state.stunnedUntil ? 0 : PLAYER_SPEED * speedMultiplier * getPuddleSpeedMultiplier(this.room.state, state, Date.now()),
             context.dt,
             state.role, this.room.state.bookBarriers.values(), Date.now(),
@@ -305,6 +308,16 @@ export class MultiplayerScene extends Phaser.Scene {
         instantRewind ? player.x : this.predict?.value(player, "x") ?? player.x,
         instantRewind ? player.y : this.predict?.value(player, "y") ?? player.y,
       );
+      if (player.role === PLAYER_ROLE.zombie && player.confusionEndsAt > Date.now()) {
+        let marker = this.confusionLabels.get(sessionId);
+        if (!marker) {
+          marker = this.add.text(0, 0, "?", { fontFamily: "monospace", fontSize: "18px", fontStyle: "bold", color: "#d8b5ff", stroke: "#1a1231", strokeThickness: 3 }).setOrigin(0.5).setDepth(15);
+          this.confusionLabels.set(sessionId, marker);
+        }
+        marker.setPosition(view.sprite.x, view.sprite.y - 65 + Math.sin(this.time.now / 150) * 3);
+      } else {
+        this.confusionLabels.get(sessionId)?.destroy(); this.confusionLabels.delete(sessionId);
+      }
 
       if (sessionId === this.room.sessionId) {
         this.updateLocalHud(player);
@@ -338,7 +351,8 @@ export class MultiplayerScene extends Phaser.Scene {
     const isZombie = player.role === PLAYER_ROLE.zombie;
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
     const characterLabel =
-      player.characterId === CHARACTER_IDS.computerStudent ? "컴과생 / COMPUTER SCIENCE"
+      player.characterId === CHARACTER_IDS.philosophyStudent ? "철학도 / PHILOSOPHY"
+        : player.characterId === CHARACTER_IDS.computerStudent ? "컴과생 / COMPUTER SCIENCE"
         : player.characterId === CHARACTER_IDS.engineeringStudent ? "공대생 / ENGINEERING"
         : player.characterId === CHARACTER_IDS.sportsStudent
         ? "스과생 / SPORTS SCIENCE"
@@ -377,6 +391,13 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   private updateCharacterSkillPrompt(player: PlayerState): void {
+    if (player.characterId === CHARACTER_IDS.philosophyStudent && this.room.state.phase === GAME_PHASE.playing) {
+      const now = Date.now();
+      this.hidePromptText?.setText(player.philosophyCooldownEndsAt > now
+        ? `${PHILOSOPHY_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.philosophyCooldownEndsAt - now) / 1000)}초`
+        : `[SHIFT] ${PHILOSOPHY_STUDENT_CONFIG.skillName}`).setVisible(true);
+      return;
+    }
     if (player.characterId === CHARACTER_IDS.computerStudent && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
       this.hidePromptText?.setText(player.rewindCooldownEndsAt > now
@@ -619,6 +640,7 @@ export class MultiplayerScene extends Phaser.Scene {
   }
 
   private removePlayer(sessionId: string): void {
+    this.confusionLabels.get(sessionId)?.destroy(); this.confusionLabels.delete(sessionId);
     this.playerViews.get(sessionId)?.destroy();
     this.playerViews.delete(sessionId);
   }
@@ -643,6 +665,7 @@ export class MultiplayerScene extends Phaser.Scene {
     this.callbackDisposers.splice(0).forEach((dispose) => dispose());
     this.playerViews.forEach((view) => view.destroy());
     this.playerViews.clear();
+    this.confusionLabels.forEach(label => label.destroy()); this.confusionLabels.clear();
     this.decoyViews.forEach((view) => view.destroy());
     this.decoyViews.clear();
     this.clearFossilHideSpotMarkers();

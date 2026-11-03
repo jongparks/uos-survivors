@@ -36,6 +36,8 @@ export function infectHuman(state: GameState, sessionId: string, now: number): b
   player.decoyCooldownEndsAt = 0;
   player.stunnedUntil = 0;
   player.rootedUntil = 0;
+  player.confusionEndsAt = 0;
+  player.philosophyCooldownEndsAt = 0;
   player.trapCastEndsAt = 0;
   player.trapCooldownEndsAt = 0;
   player.rewindCooldownEndsAt = 0;
