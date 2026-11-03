@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { GAME_PHASE, getGameMap } from "@uos-survivors/shared";
 import type { ConnectedGameRoom } from "../network/useGameRoom";
+import { CAMPUS_BUILDING_APPEARANCE } from "./rendering/campusAppearance";
 
 const results: Record<string, string> = { ESCAPED: "탈출", INFECTED: "감염", FAILED_TO_ESCAPE: "탈출 실패" };
 export function MatchHud({ room }: { room: ConnectedGameRoom }) {
@@ -27,7 +28,7 @@ export function MatchHud({ room }: { room: ConnectedGameRoom }) {
       {gates.length ? <p>열린 출구: {gates.map(g => g.name).join(" · ")} · 출구에서 Space 1초 유지</p> : <p>출구는 생존 단계가 끝나면 열립니다.</p>}
       {gates.length ? <svg viewBox={`0 0 ${map.worldWidth} ${map.worldHeight}`} role="img" aria-label="열린 출구 위치와 내 위치" style={{ width: 260, maxWidth: "100%", background: "#10261f", borderRadius: 8 }}>
         <polygon points={map.boundary.map(p => `${p.x},${p.y}`).join(" ")} fill="#355940" stroke="#799c89" strokeWidth={8} />
-        {map.objects.map(o => <rect key={o.id} x={o.x} y={o.y} width={o.width} height={o.height} fill={o.kind === "pond" ? "#2b657a" : "#657681"} />)}
+        {map.objects.map(o => <rect key={o.id} x={o.x} y={o.y} width={o.width} height={o.height} rx={o.kind === "tree" ? o.width / 2 : 0} fill={o.kind === "pond" ? "#769b8e" : o.kind === "tree" ? "#52794f" : CAMPUS_BUILDING_APPEARANCE[o.name]?.wall ?? "#b9bdb2"} />)}
         {gates.map(g => <g key={g.name}><circle cx={g.x} cy={g.y} r={42} fill="#64f7a5" /><text x={g.x} y={g.y + 90} fontSize={90} textAnchor="middle" fill="white">{g.name}</text></g>)}
         {player && !escaped ? <circle cx={player.x} cy={player.y} r={30} fill="#ffe19b" stroke="#172219" strokeWidth={8} /> : null}
       </svg> : null}

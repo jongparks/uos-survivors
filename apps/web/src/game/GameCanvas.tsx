@@ -31,7 +31,8 @@ export function GameCanvas({ room }: GameCanvasProps) {
       backgroundColor: "#07110e",
       width: 960,
       height: 540,
-      pixelArt: true,
+      pixelArt: false,
+      antialias: true,
       physics: {
         default: "arcade",
         arcade: {

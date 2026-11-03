@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>시대생존록 · 캠퍼스 아트 미리보기</title>
+    <style>
+      *{box-sizing:border-box}body{margin:0;background:#e9ecdf;color:#304438;font-family:system-ui,sans-serif}header{padding:24px 36px;background:#f5f3e9;border-bottom:1px solid #c9cebc}h1{font-size:24px;margin:6px 0}p{margin:8px 0;font-size:14px;color:#61705d}nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}button,a{font:inherit;font-size:13px;border:1px solid #b6c0aa;background:#f8f7ef;color:#304438;border-radius:6px;padding:8px 12px;cursor:pointer;text-decoration:none}button[aria-pressed=true]{background:#3a5644;color:#f8f7ef}main{padding:24px}canvas{width:100%;height:auto;display:block;border-radius:10px;box-shadow:0 10px 35px #263e341c}footer{font-size:12px;color:#61705d;padding:0 24px 24px}
+    </style>
+  </head>
+  <body>
+    <header><p>UOS · UNIVERSITY OF SURVIVORS</p><h1>캠퍼스 아트 미리보기</h1><p>학교 사진의 재질과 색감을 옮긴 탑다운 일러스트 · 게임용 배치와 비례</p><nav aria-label="미리보기 영역"><button data-view="all" aria-pressed="true">전체 캠퍼스</button><button data-view="west" aria-pressed="false">전농관 · 경농관</button><button data-view="center" aria-pressed="false">본부 · 시대융합관</button><button data-view="east" aria-pressed="false">도서관 · 하늘못</button><a id="download" download="uos-campus-art.png">전체 이미지 저장</a></nav></header>
+    <main><canvas aria-label="캠퍼스 지도 아트"></canvas></main>
+    <footer>실제 건물의 정밀 복원도가 아닌 게임용 표현입니다. 사진이 불충분한 부속 건물은 단순화했습니다.</footer>
+    <script type="module" src="/src/game/rendering/mapPreview.ts"></script>
+  </body>
+</html>

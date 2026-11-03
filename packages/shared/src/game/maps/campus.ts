@@ -1,4 +1,4 @@
-import type { GameMapDefinition, MapPoint, StaticMapObject } from "./types.js";
+import { pointInPolygon, type GameMapDefinition, type MapPoint, type StaticMapObject } from "./types.js";
 
 // Relative positions traced from the official outdoor guide (not a collision
 // image). Footprints/path widths are intentionally reconstructed for play.
@@ -35,7 +35,7 @@ const gatePoints = [point(250, 700), point(590, 95), point(950, 970), point(1310
 const spawns = [point(350, 715), point(605, 465), point(810, 510), point(1020, 535), point(1220, 745), point(1500, 480), point(760, 910), point(580, 330)];
 const hidePositions = [point(360, 650), point(610, 510), point(850, 470), point(1040, 500), point(1230, 740), point(1490, 490), point(760, 900), point(580, 325)];
 
-export const CAMPUS_MAP: GameMapDefinition = {
+const campus: GameMapDefinition = {
   id: "MAP_UOS_CAMPUS_V2", name: "서울시립대학교 캠퍼스", tileSize: tile, worldWidth: width, worldHeight: height,
   source: "https://www.uos.ac.kr/kor/html/auos/guide/map/map.do?identified=anonymous",
   boundary: [[150, 675], [180, 460], [335, 320], [375, 45], [525, 5], [680, 30], [715, 290], [1000, 260], [1165, 330], [1360, 205], [1540, 205], [1900, 335], [1990, 650], [1840, 980], [1460, 940], [1370, 1010], [1080, 980], [940, 1040], [380, 1100], [335, 950], [155, 830]].map(([x, y]) => point(x!, y!)),
@@ -51,3 +51,22 @@ export const CAMPUS_MAP: GameMapDefinition = {
   hideSpots: hidePositions.map((p, i) => ({ ...p, id: `campus-hide-${i}`, zoneId: `zone-${i}`, exitX: p.x, exitY: p.y, interactionRadius: 40 })),
   protectedPoints: [...gatePoints, ...spawns],
 };
+
+// Garden trees have explicit trunks/collision footprints. Keep planted groups
+// off roads and well away from mandatory interaction/arrival points.
+const trees: StaticMapObject[] = [];
+for (let y = 160; y < height - 64; y += 112) for (let x = 320; x < width - 100; x += 128) {
+  const seed = ((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0);
+  if (seed % 5 === 0) continue;
+  const p = { x: Math.floor((x + seed % 97 - 48) / tile) * tile, y: Math.floor((y + (seed >>> 8) % 65 - 32) / tile) * tile };
+  const corners = [p, { x: p.x + 64, y: p.y }, { x: p.x, y: p.y + 64 }, { x: p.x + 64, y: p.y + 64 }];
+  if (!corners.every(c => pointInPolygon(c, campus.boundary))) continue;
+  if (campus.ground.some(a => {
+    const xs = a.points.map(c => c.x), ys = a.points.map(c => c.y);
+    return p.x < Math.max(...xs) + 16 && p.x + 64 > Math.min(...xs) - 16 && p.y < Math.max(...ys) + 16 && p.y + 64 > Math.min(...ys) - 16;
+  })) continue;
+  if (objects.some(o => p.x < o.x + o.width + 24 && p.x + 64 > o.x - 24 && p.y < o.y + o.height + 24 && p.y + 64 > o.y - 24)) continue;
+  if ([...spawns, ...gatePoints, ...hidePositions].some(q => Math.hypot(q.x - p.x - 32, q.y - p.y - 32) < 110)) continue;
+  trees.push({ id: `garden-tree-${trees.length}`, name: "", kind: "tree", ...p, width: 64, height: 64 });
+}
+export const CAMPUS_MAP: GameMapDefinition = { ...campus, objects: [...objects, ...trees] };
