@@ -59,6 +59,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .action-hud { position: absolute; z-index: 4; inset: auto 8px 8px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px; pointer-events: none; font-size: clamp(11px, 1.6vw, 16px); }
 .action-hud > div { padding: 4px 9px; color: #fff3dc; background: #151513ec; border: 1px solid #c6b693; border-radius: 4px; font-weight: 700; }
 .action-hud kbd { padding: 1px 4px; background: #544831; color: #fff3dc; border-radius: 3px; }
+.game-chat-input, .game-chat-hint { position: absolute; z-index: 4; color: #fff3dc; background: #151513ed; border: 1px solid #c6b693; border-radius: 5px; }
+.game-chat-input { inset: auto 8px 8px; width: min(540px, calc(100% - 16px)); margin-inline: auto; display: flex; align-items: center; gap: 8px; padding: 6px; font-size: clamp(10px, 1.4vw, 14px); }
+.game-chat-input input { flex: 1; min-width: 0; padding: 6px 8px; color: inherit; background: #26262a; border: 1px solid #736655; border-radius: 4px; }
+.game-chat-hint { top: 8px; right: 8px; padding: 3px 6px; font-size: 11px; pointer-events: none; }
 .status-panel { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 24px; align-items: center; margin-top: 18px; padding: 20px 24px; }
 .status-panel > div:first-child { display: flex; gap: 10px; align-items: center; font-size: 13px; }
 .status-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; color: var(--ink2); background: currentColor; }

@@ -22,6 +22,7 @@ export function MatchHud({ room }: { room: ConnectedGameRoom }) {
     <p className="document-kicker">{state.phase === GAME_PHASE.finished ? "INCIDENT REPORT · 최종 기록" : "CAMPUS BULLETIN · 생존 상황"}</p>
     {state.phase === GAME_PHASE.finished ? <>
       <strong>{state.winner === "human" ? "인간 진영 승리" : "좀비 진영 승리"}</strong>
+      {state.lobbyReturnsAt > 0 && <p>대기실로 돌아가기까지 {Math.max(0, Math.ceil((state.lobbyReturnsAt - Date.now()) / 1000))}초</p>}
       <ul className="round-results">{[...(state.roundResults?.entries() ?? [])].map(([id, p]) => <li key={id}><span>{p.nickname}</span><strong>{p.startedAsHuman ? results[p.result] ?? "기록 없음" : "시작 좀비"}</strong></li>)}</ul>
     </> : <>
       <strong>{state.roundStage === "ESCAPE" ? "탈출 단계" : "생존 단계"} · 남은 시간 {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</strong>

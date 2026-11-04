@@ -1,5 +1,6 @@
 import { Callbacks, Predict, type InputHandle } from "@colyseus/sdk";
 import Phaser from "phaser";
+import { CHAT_MESSAGES, type ChatBubbleMessage } from "@uos-survivors/shared";
 
 import {
   CHARACTER_IDS,
@@ -65,7 +66,7 @@ export class MultiplayerScene extends Phaser.Scene {
   private assignmentSuccessAt = 0;
   private readonly handleAssignmentKey = (event: KeyboardEvent): void => {
     const challenge = this.assignmentChallenge;
-    if (!challenge || event.repeat || Date.now() >= challenge.expiresAt) return;
+    if (this.isChatOpen() || !challenge || event.repeat || Date.now() >= challenge.expiresAt) return;
     const directions: Record<string, AssignmentDirection> = { ArrowUp: "UP", ArrowDown: "DOWN", ArrowLeft: "LEFT", ArrowRight: "RIGHT" };
     const direction = directions[event.code];
     if (direction) { event.preventDefault(); this.room.send(ASSIGNMENT_MESSAGES.input, { id: challenge.id, direction }); }
@@ -85,7 +86,11 @@ export class MultiplayerScene extends Phaser.Scene {
   private placementFailedUntil = 0;
   private tracking: GraduateTrackingView = { target: null, trackingEndsAt: 0, cooldownEndsAt: 0 };
 
-  constructor(room: ConnectedGameRoom, private readonly showActions: (skill: string, attack: string) => void) {
+  constructor(
+    room: ConnectedGameRoom,
+    private readonly showActions: (skill: string, attack: string) => void,
+    private readonly isChatOpen: () => boolean,
+  ) {
     super("multiplayer");
     this.room = room;
     this.gameMap = getGameMap(room.state.mapId);
@@ -165,6 +170,9 @@ export class MultiplayerScene extends Phaser.Scene {
       this.room.onMessage<FossilHideSpotView[]>(FOSSIL_MESSAGES.hideSpots, (spots) => {
         this.replaceFossilHideSpotMarkers(spots);
       }),
+      this.room.onMessage<ChatBubbleMessage>(CHAT_MESSAGES.bubble, ({ sessionId, text }) => {
+        this.playerViews.get(sessionId)?.showChat(text);
+      }),
     );
     this.room.send(FOSSIL_MESSAGES.requestHideSpots);
     this.room.send(ASSIGNMENT_MESSAGES.subscribe);
@@ -223,6 +231,8 @@ export class MultiplayerScene extends Phaser.Scene {
     }
 
     const inputSteps = this.predict.tick(time);
+    const typing = this.isChatOpen();
+    if (typing) this.input.keyboard?.resetKeys();
 
     if (this.room.state.phase !== GAME_PHASE.finished) {
       for (let step = 0; step < inputSteps; step += 1) {
@@ -230,7 +240,7 @@ export class MultiplayerScene extends Phaser.Scene {
         const localPlayer = this.room.state.players.get(this.room.sessionId);
         const isHidden = localPlayer?.activity === PLAYER_ACTIVITY.hidden;
         const isStunned = (localPlayer?.stunnedUntil ?? 0) > Date.now();
-        const actionsLocked = this.room.state.phase === GAME_PHASE.preparing || !!localPlayer?.escaped || isHidden || isStunned || (localPlayer?.assignmentLockEndsAt ?? 0) > Date.now() || (this.assignmentChallenge?.expiresAt ?? 0) > Date.now();
+        const actionsLocked = typing || this.room.state.phase === GAME_PHASE.preparing || !!localPlayer?.escaped || isHidden || isStunned || (localPlayer?.assignmentLockEndsAt ?? 0) > Date.now() || (this.assignmentChallenge?.expiresAt ?? 0) > Date.now();
         this.movementInput.data.moveX = (actionsLocked ? 0 : controls.moveX) as -1 | 0 | 1;
         this.movementInput.data.moveY = (actionsLocked ? 0 : controls.moveY) as -1 | 0 | 1;
         this.movementInput.data.interact = actionsLocked ? false : controls.interact;

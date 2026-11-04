@@ -1,5 +1,13 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
 
+export const CHAT_MESSAGES = { send: "chat:send", bubble: "chat:bubble" } as const;
+export const CHAT_RULES = { maxLength: 80, cooldownMs: 750, displayMs: 4_000 } as const;
+
+export interface ChatBubbleMessage {
+  sessionId: string;
+  text: string;
+}
+
 export const MovementInput = schema(
   {
     moveX: t.int8<-1 | 0 | 1>().default(0),

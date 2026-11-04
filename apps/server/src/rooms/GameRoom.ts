@@ -4,6 +4,8 @@ import { StateView } from "@colyseus/schema";
 
 import {
   CHARACTER_IDS,
+  CHAT_MESSAGES,
+  CHAT_RULES,
   DANGER_MESSAGES,
   ASSIGNMENT_MESSAGES,
   type AssignmentChallengeView,
@@ -29,7 +31,7 @@ import {
   applyMovementWithBarriers,
   LIBRARY_PLACEMENT_FAILED_MESSAGE,
   assignCharacters,
-  MATCH_MESSAGES, ROUND_START_RULES,
+  MATCH_MESSAGES, ROUND_START_RULES, ROUND_RESULTS_MS,
   SPECIAL_ZOMBIE_CHARACTER_IDS,
   pickInitialZombieCharacter,
   getPuddleSpeedMultiplier,
@@ -93,6 +95,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   private readonly dangerSubscribers = new Set<string>();
   private readonly interactionHeld = new Map<string, boolean>();
   private readonly skillHeld = new Map<string, boolean>();
+  private readonly lastChatAt = new Map<string, number>();
   private readonly hideSpotSubscribers = new Set<string>();
 
   inputs = this.defineInput(MovementInput, {
@@ -113,6 +116,18 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.roomCode = this.roomId;
     this.state.isPrivate = options.visibility === ROOM_VISIBILITY.private;
     await this.setPrivate(this.state.isPrivate);
+    this.onMessage(CHAT_MESSAGES.send, (client, payload: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player?.connected || player.escaped || player.activity === PLAYER_ACTIVITY.hidden ||
+        typeof payload !== "string" || payload.length > CHAT_RULES.maxLength) return;
+
+      const text = payload.replace(/\s+/g, " ").trim();
+      if (!text) return;
+      const now = Date.now();
+      if (now - (this.lastChatAt.get(client.sessionId) ?? 0) < CHAT_RULES.cooldownMs) return;
+      this.lastChatAt.set(client.sessionId, now);
+      this.broadcast(CHAT_MESSAGES.bubble, { sessionId: client.sessionId, text });
+    });
     this.onMessage(ASSIGNMENT_MESSAGES.subscribe, client => {
       this.assignmentSubscribers.add(client.sessionId);
       this.professorAssignmentSystem.update(this.state, Date.now(), this.sendAssignment);
@@ -182,6 +197,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
   }
 
   onLeave(client: Client): void {
+    this.lastChatAt.delete(client.sessionId);
     const leaving = this.state.players.get(client.sessionId), leavingResult = this.state.roundResults.get(client.sessionId);
     if (leaving?.role === PLAYER_ROLE.human && !leaving.escaped && leavingResult && !leavingResult.result) leavingResult.result = 'FAILED_TO_ESCAPE';
     this.matchTimerGateSystem.cancel(client.sessionId, leaving);
@@ -253,6 +269,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.matchTimerGateSystem.update(this.state, now);
     if (this.state.phase === GAME_PHASE.finished && !this.finishedCleanupDone) {
       this.finishedCleanupDone = true;
+      this.state.lobbyReturnsAt = now + ROUND_RESULTS_MS;
       this.sculptureDecoySystem.clear(this.state);
       this.vomitSystem.clear(this.state);
       this.graduateTrackingSystem.clear();
@@ -262,6 +279,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       this.computerRewindSystem.clear(this.state);
       this.professorAssignmentSystem.clear(this.state, this.sendAssignment);
     }
+    if (this.state.phase === GAME_PHASE.finished && now >= this.state.lobbyReturnsAt) this.resetToWaiting();
     this.professorAssignmentSystem.update(this.state, now, this.sendAssignment);
     this.libraryBarrierSystem.update(this.state, now);
     this.engineeringTrapSystem.update(this.state, now);
@@ -470,6 +488,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.startError = "";
     this.state.matchStartedAt = 0;
     this.state.roundStartsAt = 0;
+    this.state.lobbyReturnsAt = 0;
     this.state.matchParticipantCount = 0;
     this.fossilHideSystem.clear();
     this.professorAssignmentSystem.clear(this.state, this.sendAssignment);
@@ -480,7 +499,12 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.graduateTrackingSystem.clear();
     this.vomitSystem.clear(this.state);
     this.sculptureDecoySystem.clear(this.state);
+    const { spawns } = getGameMap(this.state.mapId);
+    let spawnIndex = 0;
     this.state.players.forEach((player) => {
+      const spawn = spawns[spawnIndex++ % spawns.length]!;
+      player.x = spawn.x;
+      player.y = spawn.y;
       this.fossilHideSystem.resetPlayer(player);
       resetSportsSprint(player);
       resetPhilosophyState(player);
@@ -492,6 +516,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       player.nextAttackAt = 0;
       player.lastBasicAttackAt = 0;
       player.stunnedUntil = 0;
+      player.rootedUntil = 0;
     });
     this.state.players.forEach((player, sessionId) => {
       this.setPlayerVisibleToOthers(sessionId, player, true);

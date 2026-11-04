@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Phaser from "phaser";
-import { CHARACTER_IDS, CHARACTER_PROFILES, GAME_PHASE, ROUND_START_RULES } from "@uos-survivors/shared";
+import { CHARACTER_IDS, CHARACTER_PROFILES, CHAT_MESSAGES, CHAT_RULES, GAME_PHASE, ROUND_START_RULES } from "@uos-survivors/shared";
 
 import type { ConnectedGameRoom } from "../network/useGameRoom";
 import { MultiplayerScene } from "./scenes/MultiplayerScene";
@@ -13,9 +13,37 @@ interface GameCanvasProps {
 
 export function GameCanvas({ room }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const chatOpenRef = useRef(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [readyMap, setReadyMap] = useState(room.state.mapId ?? "");
   const [actions, setActions] = useState({ skill: "", attack: "" });
   const [briefing, setBriefing] = useState({ remaining: 0, character: "" });
+  const toggleChat = (open: boolean) => {
+    chatOpenRef.current = open;
+    setChatOpen(open);
+  };
+  useEffect(() => {
+    const openChat = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.repeat || event.isComposing || event.keyCode === 229 ||
+        chatOpenRef.current || !room.connection.isOpen || room.state.phase === GAME_PHASE.preparing ||
+        (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, button, a, [contenteditable]"))) return;
+      event.preventDefault();
+      event.stopPropagation();
+      toggleChat(true);
+    };
+    const closeChat = () => toggleChat(false);
+    const closeDuringBriefing = () => {
+      if (chatOpenRef.current && room.state.phase === GAME_PHASE.preparing) closeChat();
+    };
+    window.addEventListener("keydown", openChat, true);
+    room.onDrop(closeChat);
+    room.onStateChange(closeDuringBriefing);
+    return () => {
+      window.removeEventListener("keydown", openChat, true);
+      room.onDrop.remove(closeChat);
+      room.onStateChange.remove(closeDuringBriefing);
+    };
+  }, [room]);
   useEffect(() => {
     const refresh = () => {
       const remaining = room.state.phase === GAME_PHASE.preparing
@@ -45,7 +73,7 @@ export function GameCanvas({ room }: GameCanvasProps) {
 
     const scene = new MultiplayerScene(room, (skill, attack) => {
       setActions(previous => previous.skill === skill && previous.attack === attack ? previous : { skill, attack });
-    });
+    }, () => chatOpenRef.current);
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: containerRef.current,
@@ -93,12 +121,39 @@ export function GameCanvas({ room }: GameCanvasProps) {
             <span className="briefing-count">{reading ? `준비 · ${seconds}초` : `${seconds}`}</span>
           </section>
         </div>
-      ) : (actions.skill || actions.attack) ? (
+      ) : !chatOpen && (actions.skill || actions.attack) ? (
         <div className="action-hud" aria-label="능력 및 공격 상태">
           {actions.attack && <div><kbd>Space</kbd> <b>기본 공격</b> · {actions.attack}</div>}
           {actions.skill && <div>{actions.skill}</div>}
         </div>
       ) : null}
+      {chatOpen ? (
+        <div className="game-chat-input">
+          <input
+            autoFocus
+            aria-label="게임 채팅"
+            placeholder="메시지를 입력하세요"
+            maxLength={CHAT_RULES.maxLength}
+            onBlur={() => toggleChat(false)}
+            onKeyUp={event => event.stopPropagation()}
+            onKeyDown={event => {
+              event.stopPropagation();
+              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229 || event.repeat) return;
+              if (event.key === "Escape") {
+                event.preventDefault();
+                toggleChat(false);
+              }
+              if (event.key === "Enter") {
+                event.preventDefault();
+                const text = event.currentTarget.value.trim();
+                if (text && room.connection.isOpen) room.send(CHAT_MESSAGES.send, text);
+                toggleChat(false);
+              }
+            }}
+          />
+          <span>Enter 전송 · Esc 닫기</span>
+        </div>
+      ) : briefing.remaining === 0 && <span className="game-chat-hint"><kbd>Enter</kbd> 채팅</span>}
     </div>
   );
 }

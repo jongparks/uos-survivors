@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-import { PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_SPEED, isHumanDisguise, type PlayerState } from "@uos-survivors/shared";
+import { CHAT_RULES, PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_SPEED, isHumanDisguise, type PlayerState } from "@uos-survivors/shared";
 
 import { TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
 import { ZOMBIE_DESIGNS, type ZombieDesign } from "../rendering/zombieDesigns";
@@ -10,6 +10,8 @@ export class NetworkPlayerView {
   private readonly label: Phaser.GameObjects.Text;
   private readonly scene: Phaser.Scene;
   private readonly isLocalPlayer: boolean;
+  private chatBubble?: Phaser.GameObjects.Container;
+  private chatTimer?: Phaser.Time.TimerEvent;
   private stopTimer?: Phaser.Time.TimerEvent;
   private useLeftStep = false;
   private destroyed = false;
@@ -38,6 +40,33 @@ export class NetworkPlayerView {
       })
       .setOrigin(0.5, 1)
       .setDepth(9);
+  }
+
+  showChat(message: string): void {
+    this.clearChat();
+    const text = this.scene.add.text(0, -7, message, {
+      color: "#25231f",
+      fontFamily: '"Noto Sans KR", "Malgun Gothic", sans-serif',
+      fontSize: "15px",
+      padding: { x: 9, y: 5 },
+      wordWrap: { width: 200, useAdvancedWrap: true },
+      align: "center",
+    }).setOrigin(.5, 1);
+    const background = this.scene.add.graphics().fillStyle(0xf4ead6);
+    background.fillRoundedRect(-text.width / 2, -7 - text.height, text.width, text.height, 7);
+    background.fillTriangle(-5, -8, 5, -8, 0, 0);
+    this.chatBubble = this.scene.add.container(this.label.x, this.label.y - this.label.height - 4, [background, text]).setDepth(20);
+    this.chatTimer = this.scene.time.delayedCall(CHAT_RULES.displayMs, () => {
+      this.chatTimer = undefined;
+      this.clearChat();
+    });
+  }
+
+  private clearChat(): void {
+    this.chatTimer?.remove(false);
+    this.chatTimer = undefined;
+    this.chatBubble?.destroy();
+    this.chatBubble = undefined;
   }
 
   applyRenderState(player: PlayerState, x: number, y: number): void {
@@ -131,6 +160,7 @@ export class NetworkPlayerView {
     const height = this.appliedDesign?.displayHeight ?? 42;
     this.sprite.setDisplaySize(width * (1 + attack * 0.025), height * (1 - attack * 0.025));
     this.label.setPosition(x, this.sprite.getBounds().top - 5);
+    this.chatBubble?.setPosition(x, this.label.y - this.label.height - 4);
   }
 
   destroy(): void {
@@ -140,6 +170,7 @@ export class NetworkPlayerView {
 
     this.destroyed = true;
     this.stopTimer?.remove(false);
+    this.clearChat();
     this.sprite.destroy();
     this.label.destroy();
   }

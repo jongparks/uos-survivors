@@ -10,6 +10,8 @@ import {
   ASSIGNMENT_MESSAGES,
   DEFAULT_MAP_ID, getGameMap,
   ROUND_START_RULES,
+  ROUND_RESULTS_MS, UNASSIGNED_CHARACTER_ID,
+  CHAT_MESSAGES,
   TEST_MAP_WIDTH, TEST_MAP_HEIGHT, TILE_INDEX, TILE_SIZE, getTestMapTile, tileToWorld,
 } from "@uos-survivors/shared";
 
@@ -61,6 +63,21 @@ try {
     nickname: "CampusGuest", visibility: ROOM_VISIBILITY.public, mapId: DEFAULT_MAP_ID,
   }));
   if (campusGuest.roomId !== campusHost.roomId) throw new Error("Campus quick join did not match the selected map");
+  const chat = [];
+  const outsideChat = [];
+  const stopHostChat = campusHost.onMessage(CHAT_MESSAGES.bubble, () => {});
+  const stopGuestChat = campusGuest.onMessage(CHAT_MESSAGES.bubble, message => chat.push(message));
+  const stopOutsideChat = privateHost.onMessage(CHAT_MESSAGES.bubble, message => outsideChat.push(message));
+  campusHost.send(CHAT_MESSAGES.send, "  하늘못 쪽으로 가자  ");
+  campusHost.send(CHAT_MESSAGES.send, "연속 전송");
+  await waitUntil(() => chat.length > 0, "Chat did not reach the room");
+  await delay(150);
+  if (chat.length !== 1 || chat[0].sessionId !== campusHost.sessionId || chat[0].text !== "하늘못 쪽으로 가자" || outsideChat.length) {
+    throw new Error("Chat sender, rate limit, or room isolation failed");
+  }
+  stopHostChat();
+  stopGuestChat();
+  stopOutsideChat();
   for (let i = 0; i < 2; i++) track(await new Client(endpoint).joinById(campusHost.roomId, { nickname: "Campus" + i }));
   campusHost.send(MATCH_MESSAGES.start);
   await waitUntil(() => campusHost.state.phase === GAME_PHASE.preparing, "Campus briefing did not start");
@@ -240,7 +257,27 @@ try {
       [...originalPrivate].some(([id, c]) => privateHost.state.players.get(id)?.characterId !== c)) {
     throw new Error("Infection changed membership or rerolled initial assignments");
   }
-  console.log("Assignment/network smoke passed: public=8, private=4, lateJoin=HUMAN_000, host-only start, unique specials, unchanged assignments, movement and reconnect");
+  const campusCode = campusHost.roomId;
+  const survivorId = campusHost.state.initialZombieSessionId;
+  const campusPlayers = rooms.filter(room => room.roomId === campusCode);
+  const remainingRoom = campusPlayers.find(room => room.sessionId === survivorId);
+  for (const room of campusPlayers.filter(room => room !== remainingRoom)) {
+    await room.leave();
+    rooms.splice(rooms.indexOf(room), 1);
+  }
+  await waitUntil(() => remainingRoom.state.phase === GAME_PHASE.finished && remainingRoom.state.lobbyReturnsAt > 0,
+    "Round result did not schedule a lobby return");
+  await waitUntil(() => remainingRoom.state.phase === GAME_PHASE.waiting, "Room did not return to its lobby", ROUND_RESULTS_MS / 50 + 60);
+  const returnedPlayer = remainingRoom.state.players.get(survivorId);
+  if (remainingRoom.roomId !== campusCode || remainingRoom.state.hostSessionId !== survivorId ||
+      returnedPlayer?.characterId !== UNASSIGNED_CHARACTER_ID || returnedPlayer?.role !== PLAYER_ROLE.human ||
+      remainingRoom.state.matchEndsAt || remainingRoom.state.roundResults.size) {
+    throw new Error("Lobby return failed to preserve room membership or reset the round");
+  }
+  for (let i = 0; i < 3; i++) track(await new Client(endpoint).joinById(campusCode, { nickname: "Rematch" + i }));
+  remainingRoom.send(MATCH_MESSAGES.start);
+  await waitUntil(() => remainingRoom.state.phase === GAME_PHASE.preparing, "Host could not start a rematch in the same room");
+  console.log("Network smoke passed: assignment, chat isolation, movement, reconnect, lobby return, and rematch");
 } finally {
   await Promise.allSettled(rooms.map(room => room.leave()));
   server.kill();
