@@ -37,7 +37,7 @@ describe("zombie combat", () => {
     zombie.facingX = 1;
     zombie.facingY = 0;
     addPlayer(state, "front", PLAYER_ROLE.human, 140, 100);
-    addPlayer(state, "behind", PLAYER_ROLE.human, 70, 100);
+    addPlayer(state, "behind", PLAYER_ROLE.human, 55, 100);
 
     expect(findZombieAttackTarget(state, "zombie")).toEqual({
       type: "human",
@@ -59,6 +59,16 @@ describe("zombie combat", () => {
     expect(zombie.lastBasicAttackAt).toBe(1_000);
     expect(resolveZombieAttack(state, "zombie", 3_000)).toEqual({ type: "human", id: "human" });
     expect(zombie.lastBasicAttackAt).toBe(3_000);
+  });
+
+  it("hits an overlapping human even when the zombie faces away", () => {
+    const state = new GameState();
+    state.phase = GAME_PHASE.playing;
+    const zombie = addPlayer(state, "zombie", PLAYER_ROLE.zombie, 100, 100);
+    zombie.facingX = 1;
+    zombie.facingY = 0;
+    addPlayer(state, "overlap", PLAYER_ROLE.human, 69, 120);
+    expect(resolveZombieAttack(state, "zombie", 1000)).toEqual({ type: "human", id: "overlap" });
   });
 
   it("does not expose a hidden Fossil as an attack target", () => {

@@ -1,7 +1,8 @@
 import { PLAYER_SPAWNS, TILE_SIZE, TEST_MAP_WIDTH, TEST_MAP_HEIGHT, tileToWorld, TILE_INDEX } from "../config.js";
 import { TEST_MAP_DATA } from "../map.js";
 import { CAMPUS_MAP, CAMPUS_NIGHT_MAP } from "./campus.js";
-import { pointInPolygon, type GameMapDefinition } from "./types.js";
+import type { GameMapDefinition } from "./types.js";
+import { overlapsMapFootprint } from "./footprints.js";
 
 const spawns = PLAYER_SPAWNS.map(p => ({ x: tileToWorld(p.tileX), y: tileToWorld(p.tileY) }));
 export const TEST_GAME_MAP: GameMapDefinition = {
@@ -26,8 +27,8 @@ export function getMapTiles(map: GameMapDefinition): readonly (readonly number[]
   let result = tiles.get(map);
   if (!result) {
     result = Array.from({ length: Math.ceil(map.worldHeight / map.tileSize) }, (_, y) => Array.from({ length: Math.ceil(map.worldWidth / map.tileSize) }, (_, x) => {
-      const p = { x: (x + 0.5) * map.tileSize, y: (y + 0.5) * map.tileSize };
-      return pointInPolygon(p, map.boundary) && !map.objects.some(o => p.x >= o.x && p.x < o.x + o.width && p.y >= o.y && p.y < o.y + o.height) ? TILE_INDEX.floor : TILE_INDEX.wall;
+      return overlapsMapFootprint(map, (x + 0.5) * map.tileSize, (y + 0.5) * map.tileSize, 0)
+        ? TILE_INDEX.wall : TILE_INDEX.floor;
     })); tiles.set(map, result);
   }
   return result;

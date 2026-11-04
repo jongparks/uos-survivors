@@ -27,6 +27,7 @@ import {
   SPRINT_STATE,
   getGameMap, type GameMapDefinition,
   applyMovementWithBarriers,
+  clearDashDistance,
   LIBRARY_PLACEMENT_FAILED_MESSAGE,
   LATE_ZOMBIE_CONFIG,
   getCharacterSpeedMultiplier,
@@ -76,7 +77,6 @@ export class MultiplayerScene extends Phaser.Scene {
   private matchStatusText?: Phaser.GameObjects.Text;
   private controlsText?: Phaser.GameObjects.Text;
   private roleStatusText?: Phaser.GameObjects.Text;
-  private hidePromptText?: Phaser.GameObjects.Text;
   private readonly fossilHideSpotMarkers = new Map<string, FossilHideSpotMarker>();
   private disposed = false;
   private vomitGraphics?: Phaser.GameObjects.Graphics;
@@ -85,7 +85,7 @@ export class MultiplayerScene extends Phaser.Scene {
   private placementFailedUntil = 0;
   private tracking: GraduateTrackingView = { target: null, trackingEndsAt: 0, cooldownEndsAt: 0 };
 
-  constructor(room: ConnectedGameRoom) {
+  constructor(room: ConnectedGameRoom, private readonly showActions: (skill: string, attack: string) => void) {
     super("multiplayer");
     this.room = room;
     this.gameMap = getGameMap(room.state.mapId);
@@ -205,19 +205,6 @@ export class MultiplayerScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(100);
 
-    this.hidePromptText = this.add
-      .text(20, 120, "", {
-        color: "#8fffd5",
-        fontFamily: "monospace",
-        fontSize: "11px",
-        fontStyle: "bold",
-        backgroundColor: "#07110ecc",
-        padding: { x: 8, y: 5 },
-      })
-      .setScrollFactor(0)
-      .setDepth(100)
-      .setVisible(false);
-
     this.add
       .text(20, 58, "PHASE 5 · RANDOM HUMAN CHARACTERS", {
         color: "#6f9d89",
@@ -243,7 +230,7 @@ export class MultiplayerScene extends Phaser.Scene {
         const localPlayer = this.room.state.players.get(this.room.sessionId);
         const isHidden = localPlayer?.activity === PLAYER_ACTIVITY.hidden;
         const isStunned = (localPlayer?.stunnedUntil ?? 0) > Date.now();
-        const actionsLocked = !!localPlayer?.escaped || isHidden || isStunned || (localPlayer?.assignmentLockEndsAt ?? 0) > Date.now() || (this.assignmentChallenge?.expiresAt ?? 0) > Date.now();
+        const actionsLocked = this.room.state.phase === GAME_PHASE.preparing || !!localPlayer?.escaped || isHidden || isStunned || (localPlayer?.assignmentLockEndsAt ?? 0) > Date.now() || (this.assignmentChallenge?.expiresAt ?? 0) > Date.now();
         this.movementInput.data.moveX = (actionsLocked ? 0 : controls.moveX) as -1 | 0 | 1;
         this.movementInput.data.moveY = (actionsLocked ? 0 : controls.moveY) as -1 | 0 | 1;
         this.movementInput.data.interact = actionsLocked ? false : controls.interact;
@@ -282,10 +269,17 @@ export class MultiplayerScene extends Phaser.Scene {
         smoothMs: NETWORK_RATE.correctionSmoothMs,
         snap: this.gameMap.tileSize * 2,
         step: (context, state, command) => {
-          if (state.escaped || state.assignmentLockEndsAt > Date.now() || state.trapCastEndsAt > Date.now() || state.rootedUntil > Date.now()) return;
+          if (this.room.state.phase === GAME_PHASE.preparing || state.escaped || state.assignmentLockEndsAt > Date.now() || state.trapCastEndsAt > Date.now() || state.rootedUntil > Date.now()) return;
           if (state.dashEndsAt > Date.now()) {
             const remaining = Math.max(0, this.gameMap.tileSize * LATE_ZOMBIE_CONFIG.dashDistanceTiles - Math.hypot(state.x - state.dashStartX, state.y - state.dashStartY));
             const speed = Math.min(this.gameMap.tileSize * LATE_ZOMBIE_CONFIG.dashDistanceTiles / (LATE_ZOMBIE_CONFIG.dashDurationMs / 1000), remaining / context.dt);
+            if (!this.gameMap.collisionTiles) {
+              const direction = { x: state.dashDirectionX, y: state.dashDirectionY };
+              const travel = clearDashDistance(this.gameMap, state, direction, Date.now() < state.stunnedUntil ? 0 : speed * context.dt);
+              state.x += direction.x * travel;
+              state.y += direction.y * travel;
+              return;
+            }
             applyMovementWithBarriers(state, { moveX: state.dashDirectionX, moveY: state.dashDirectionY },
               Date.now() < state.stunnedUntil ? 0 : speed, context.dt, state.role, this.room.state.bookBarriers.values(), Date.now(), this.gameMap);
             return;
@@ -335,7 +329,22 @@ export class MultiplayerScene extends Phaser.Scene {
 
       if (sessionId === this.room.sessionId) {
         this.updateLocalHud(player);
-        this.updateCharacterSkillPrompt(player);
+        const now = Date.now();
+        const playing = this.room.state.phase === GAME_PHASE.playing && !player.escaped;
+        const attackEndsAt = Math.max(player.nextAttackAt, player.stunnedUntil, player.attackLockedUntil, player.assignmentLockEndsAt);
+        const attack = !playing || player.role !== PLAYER_ROLE.zombie ? "" : attackEndsAt > now
+          ? `재사용까지 ${((attackEndsAt - now) / 1000).toFixed(1)}초` : "사용 가능";
+        const prompt = playing ? this.characterSkillPrompt(player) : "";
+        const special = player.characterId !== CHARACTER_IDS.fossil && player.characterId !== CHARACTER_IDS.normalHuman &&
+          player.characterId !== CHARACTER_IDS.normalZombie;
+        let skill = prompt;
+        if (prompt.startsWith("[SHIFT]")) {
+          const available = player.stunnedUntil > now ? "기절 중" : "사용 가능";
+          skill = `${prompt.replace("[SHIFT]", "[Shift]")} · ${available}`;
+        } else if (prompt && special && !prompt.startsWith("[") && player.assignmentLockEndsAt <= now) {
+          skill = prompt.includes("[SHIFT]") ? prompt.replace("[SHIFT]", "[Shift]") : `[Shift] ${prompt}`;
+        }
+        this.showActions(skill, attack);
       }
     });
   }
@@ -359,7 +368,9 @@ export class MultiplayerScene extends Phaser.Scene {
     const phaseLabel =
       this.room.state.phase === GAME_PHASE.waiting
         ? "WAITING · NEED 4–8 PLAYERS · HOST START"
-        : this.room.state.phase === GAME_PHASE.finished
+        : this.room.state.phase === GAME_PHASE.preparing
+          ? "게임 시작 준비 중"
+          : this.room.state.phase === GAME_PHASE.finished
           ? `MATCH FINISHED · ${this.room.state.winner === "human" ? "HUMAN" : "ZOMBIE"} WIN`
           : `${this.room.state.roundStage === "ESCAPE" ? "ESCAPE" : this.room.state.exitWarning ? "15초 후 출구 개방" : "SURVIVAL"} · ${Math.floor(Math.max(0, this.room.state.matchEndsAt - Date.now()) / 60000)}:${String(Math.floor(Math.max(0, this.room.state.matchEndsAt - Date.now()) / 1000) % 60).padStart(2, "0")}`;
     const isZombie = player.role === PLAYER_ROLE.zombie;
@@ -378,12 +389,9 @@ export class MultiplayerScene extends Phaser.Scene {
           : "CHARACTER ASSIGNMENT PENDING";
     const attackLockSeconds = Math.max(0, player.attackLockedUntil - Date.now()) / 1_000;
     const stunSeconds = Math.max(0, player.stunnedUntil - Date.now()) / 1_000;
-    const attackCooldownSeconds = Math.max(0, player.nextAttackAt - Date.now()) / 1_000;
-    const hasAbility = !!player.characterId && player.characterId !== CHARACTER_IDS.normalHuman && player.characterId !== CHARACTER_IDS.normalZombie;
+    const hasAbility = !!player.characterId && player.characterId !== CHARACTER_IDS.fossil &&
+      player.characterId !== CHARACTER_IDS.normalHuman && player.characterId !== CHARACTER_IDS.normalZombie;
     this.controlsText?.setText(`ROOM ${this.room.roomId} · ARROWS MOVE${hasAbility ? " · SHIFT ABILITY" : ""} · SPACE ${isZombie ? "ATTACK" : "INTERACT"}`);
-    const basicAttackLabel = attackCooldownSeconds > 0
-      ? `기본공격 · ${attackCooldownSeconds.toFixed(1)}초`
-      : "[SPACE] 기본공격";
 
     this.matchStatusText?.setText(phaseLabel);
     this.matchStatusText?.setColor(
@@ -401,93 +409,83 @@ export class MultiplayerScene extends Phaser.Scene {
             : attackLockSeconds > 0
             ? `ROLE · ZOMBIE · [SPACE] 사용 불가 ${attackLockSeconds.toFixed(1)}s`
             : player.characterId === CHARACTER_IDS.normalZombie
-              ? `ROLE · ZOMBIE · 일반 좀비 · ${basicAttackLabel}`
-              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.professor ? "교수님" : player.characterId === CHARACTER_IDS.xmanZombie ? "엑스맨" : player.characterId === CHARACTER_IDS.lateZombie ? "지각생" : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"} · ${basicAttackLabel}`,
+              ? `ROLE · ZOMBIE · 일반 좀비`
+              : `ROLE · ZOMBIE · ${player.characterId === CHARACTER_IDS.professor ? "교수님" : player.characterId === CHARACTER_IDS.xmanZombie ? "엑스맨" : player.characterId === CHARACTER_IDS.lateZombie ? "지각생" : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC" : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"}`,
     );
     this.roleStatusText?.setColor(isZombie ? "#ff8c84" : "#b9c9ff");
   }
 
-  private updateCharacterSkillPrompt(player: PlayerState): void {
-    if (player.escaped) { this.hidePromptText?.setVisible(false); return; }
+  private characterSkillPrompt(player: PlayerState): string {
     const exit = [...this.room.state.gates.values()].find(g => g.status === 'OPEN' && Math.hypot(player.x - g.x, player.y - g.y) <= g.interactionRadius);
     if (exit && player.role === PLAYER_ROLE.human && player.activity === PLAYER_ACTIVITY.normal && Date.now() >= player.assignmentLockEndsAt) {
-      this.hidePromptText?.setText(`[SPACE 유지] ${exit.name} 탈출 · ${player.escapeStartedAt ? Math.min(1, (Date.now() - player.escapeStartedAt) / 1000).toFixed(1) : '0.0'}/1.0초`).setVisible(true); return;
+      return `[SPACE 유지] ${exit.name} 탈출 · ${player.escapeStartedAt ? Math.min(1, (Date.now() - player.escapeStartedAt) / 1000).toFixed(1) : '0.0'}/1.0초`;
     }
     if (player.assignmentLockEndsAt > Date.now()) {
-      this.hidePromptText?.setText("과제 제출 중 · 방향키 미션을 완료하세요").setVisible(true); return;
+      return "과제 제출 중 · 방향키 미션을 완료하세요";
     }
     if (player.characterId === CHARACTER_IDS.professor && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(player.professorCooldownEndsAt > now
+      return player.professorCooldownEndsAt > now
         ? `${PROFESSOR_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.professorCooldownEndsAt - now) / 1000)}초`
-        : `[SHIFT] ${PROFESSOR_CONFIG.skillName}`).setVisible(true); return;
+        : `[SHIFT] ${PROFESSOR_CONFIG.skillName}`;
     }
     if (player.characterId === CHARACTER_IDS.philosophyStudent && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(player.philosophyCooldownEndsAt > now
+      return player.philosophyCooldownEndsAt > now
         ? `${PHILOSOPHY_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.philosophyCooldownEndsAt - now) / 1000)}초`
-        : `[SHIFT] ${PHILOSOPHY_STUDENT_CONFIG.skillName}`).setVisible(true);
-      return;
+        : `[SHIFT] ${PHILOSOPHY_STUDENT_CONFIG.skillName}`;
     }
     if (player.characterId === CHARACTER_IDS.computerStudent && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(player.rewindCooldownEndsAt > now
+      return player.rewindCooldownEndsAt > now
         ? `${COMPUTER_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.rewindCooldownEndsAt - now) / 1000)}초`
-        : `[SHIFT] ${COMPUTER_STUDENT_CONFIG.skillName} · 3초 전 위치 복귀`).setVisible(true);
-      return;
+        : `[SHIFT] ${COMPUTER_STUDENT_CONFIG.skillName} · 3초 전 위치 복귀`;
     }
     if (player.characterId === CHARACTER_IDS.engineeringStudent && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(player.trapCastEndsAt > now ? "밤샘 제작 · 설치 중"
+      return player.trapCastEndsAt > now ? "밤샘 제작 · 설치 중"
         : player.trapCooldownEndsAt > now ? `밤샘 제작 · 재사용까지 ${Math.ceil((player.trapCooldownEndsAt - now) / 1000)}초`
-          : `[SHIFT] ${ENGINEERING_TRAP_CONFIG.skillName}`).setVisible(true);
-      return;
+          : `[SHIFT] ${ENGINEERING_TRAP_CONFIG.skillName}`;
     }
     if (player.characterId === CHARACTER_IDS.xmanZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(player.isDisguised ? `위장 중 · 남은 시간 ${(Math.max(0, player.disguiseEndsAt - now) / 1000).toFixed(1)}초  [SHIFT] 해제`
+      return player.isDisguised ? `위장 중 · 남은 시간 ${(Math.max(0, player.disguiseEndsAt - now) / 1000).toFixed(1)}초  [SHIFT] 해제`
         : player.disguiseCooldownEndsAt > now ? `새터 잠입 · 재사용까지 ${Math.ceil((player.disguiseCooldownEndsAt - now) / 1000)}초`
-          : "[SHIFT] 새터 잠입").setVisible(true);
-      return;
+          : "[SHIFT] 새터 잠입";
     }
     if (player.characterId === CHARACTER_IDS.lateZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(player.dashEndsAt > now ? "출석 마감 · 돌진 중"
+      return player.dashEndsAt > now ? "출석 마감 · 돌진 중"
         : player.dashCooldownEndsAt > now ? `출석 마감 · 재사용까지 ${Math.ceil((player.dashCooldownEndsAt - now) / 1000)}초`
-          : "[SHIFT] 출석 마감").setVisible(true);
-      return;
+          : "[SHIFT] 출석 마감";
     }
     if (player.characterId === CHARACTER_IDS.libraryNpc && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(now < this.placementFailedUntil ? "이 위치에는 설치할 수 없습니다."
+      return now < this.placementFailedUntil ? "이 위치에는 설치할 수 없습니다."
         : now < player.barrierCooldownEndsAt ? `자리 맡아놨습니다 · 재사용까지 ${Math.ceil((player.barrierCooldownEndsAt - now) / 1000)}초`
-          : "[SHIFT] 자리 맡아놨습니다").setVisible(true);
-      return;
+          : "[SHIFT] 자리 맡아놨습니다";
     }
     if (player.characterId === CHARACTER_IDS.graduateZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(this.tracking.target && now < this.tracking.trackingEndsAt
+      return this.tracking.target && now < this.tracking.trackingEndsAt
         ? `교수님이 찾으신다 · 추적 중 ${((this.tracking.trackingEndsAt - now) / 1000).toFixed(1)}초`
         : now < this.tracking.cooldownEndsAt
           ? `교수님이 찾으신다 · 재사용까지 ${Math.ceil((this.tracking.cooldownEndsAt - now) / 1000)}초`
-          : "[SHIFT] 교수님이 찾으신다").setVisible(true);
-      return;
+          : "[SHIFT] 교수님이 찾으신다";
     }
     if (player.characterId === CHARACTER_IDS.drunkenZombie && this.room.state.phase === GAME_PHASE.playing) {
       const now = Date.now();
-      this.hidePromptText?.setText(player.vomitCastEndsAt > now
+      return player.vomitCastEndsAt > now
         ? "숙취 폭발 준비 중..."
         : player.vomitCooldownEndsAt > now
           ? `숙취 폭발 · 재사용까지 ${Math.ceil((player.vomitCooldownEndsAt - now) / 1000)}초`
-          : "[SHIFT] 숙취 폭발").setVisible(true);
-      return;
+          : "[SHIFT] 숙취 폭발";
     }
     if (
       player.role !== PLAYER_ROLE.human ||
       this.room.state.phase !== GAME_PHASE.playing
     ) {
-      this.hidePromptText?.setVisible(false);
-      return;
+      return "";
     }
 
     if (player.characterId === CHARACTER_IDS.sportsStudent) {
@@ -500,8 +498,7 @@ export class MultiplayerScene extends Phaser.Scene {
             : player.sprintState === SPRINT_STATE.cooldown
               ? `${SPORTS_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil(Math.max(0, player.cooldownEndsAt - now) / 1_000)}초`
               : `[SHIFT] ${SPORTS_STUDENT_CONFIG.skillName}`;
-      this.hidePromptText?.setText(statusText).setVisible(true);
-      return;
+      return statusText;
     }
 
     if (player.characterId === CHARACTER_IDS.sculptureStudent) {
@@ -514,27 +511,22 @@ export class MultiplayerScene extends Phaser.Scene {
         : now < player.decoyCooldownEndsAt
           ? `${SCULPTURE_STUDENT_CONFIG.skillName} · 재사용까지 ${Math.ceil((player.decoyCooldownEndsAt - now) / 1_000)}초`
           : `[SHIFT] ${SCULPTURE_STUDENT_CONFIG.skillName}`;
-      this.hidePromptText?.setText(statusText).setVisible(true);
-      return;
+      return statusText;
     }
 
     if (player.characterId !== CHARACTER_IDS.fossil) {
-      this.hidePromptText?.setVisible(false);
-      return;
+      return "";
     }
 
     if (player.activity === PLAYER_ACTIVITY.hidden) {
       const remaining = Math.max(0, player.hideEndsAt - Date.now()) / 1_000;
-      this.hidePromptText
-        ?.setText(`은신 중 · 남은 시간 ${remaining.toFixed(1)}초  [SPACE] 나오기`)
-        .setVisible(true);
-      return;
+      return `은신 중 · 남은 시간 ${remaining.toFixed(1)}초  [SPACE] 나오기`;
     }
 
     const canHide = Array.from(this.fossilHideSpotMarkers.values()).some(({ data }) =>
       Math.hypot(player.x - data.x, player.y - data.y) <= data.interactionRadius,
     );
-    this.hidePromptText?.setText(`[SPACE] ${FOSSIL_CONFIG.skillName}`).setVisible(canHide);
+    return canHide ? `[SPACE] ${FOSSIL_CONFIG.skillName}` : "";
   }
 
   private replaceFossilHideSpotMarkers(spots: FossilHideSpotView[]): void {

@@ -51,6 +51,14 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .game-frame { overflow: hidden; border: 2px solid #4a4539; border-radius: 5px; background: var(--night2); box-shadow: 0 24px 60px #0008; }
 .game-canvas { position: relative; aspect-ratio: 16 / 9; width: 100%; }
 .game-canvas canvas { display: block; }
+.round-briefing { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 8px; background: #070b0ad9; }
+.round-briefing section { display: grid; gap: clamp(2px, 1vw, 12px); width: min(540px, 100%); padding: clamp(8px, 2vw, 28px); text-align: center; color: var(--ink); background: var(--paper); border: 2px solid var(--blood); border-radius: 5px; font-size: clamp(11px, 2vw, 16px); }
+.round-briefing strong { font-size: clamp(14px, 3vw, 28px); }
+.round-briefing p { margin: 0; }
+.briefing-count { font-size: clamp(16px, 4vw, 38px); color: var(--blood2); font-weight: 900; font-variant-numeric: tabular-nums; }
+.action-hud { position: absolute; z-index: 4; inset: auto 8px 8px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 8px; pointer-events: none; font-size: clamp(11px, 1.6vw, 16px); }
+.action-hud > div { padding: 4px 9px; color: #fff3dc; background: #151513ec; border: 1px solid #c6b693; border-radius: 4px; font-weight: 700; }
+.action-hud kbd { padding: 1px 4px; background: #544831; color: #fff3dc; border-radius: 3px; }
 .status-panel { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 24px; align-items: center; margin-top: 18px; padding: 20px 24px; }
 .status-panel > div:first-child { display: flex; gap: 10px; align-items: center; font-size: 13px; }
 .status-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; color: var(--ink2); background: currentColor; }

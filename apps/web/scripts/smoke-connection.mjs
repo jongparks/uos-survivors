@@ -9,6 +9,7 @@ import {
   PLAYER_SPEED, PLAYER_ROLE, ROOM_NAMES, ROOM_VISIBILITY, validateAssignments,
   ASSIGNMENT_MESSAGES,
   DEFAULT_MAP_ID, getGameMap,
+  ROUND_START_RULES,
   TEST_MAP_WIDTH, TEST_MAP_HEIGHT, TILE_INDEX, TILE_SIZE, getTestMapTile, tileToWorld,
 } from "@uos-survivors/shared";
 
@@ -67,7 +68,29 @@ try {
   if (nightHost.roomId === campusHost.roomId || nightGuest.roomId !== nightHost.roomId) throw new Error("Night campus quick join did not match the selected map");
   for (let i = 0; i < 2; i++) track(await new Client(endpoint).joinById(campusHost.roomId, { nickname: "Campus" + i }));
   campusHost.send(MATCH_MESSAGES.start);
-  await waitUntil(() => campusHost.state.phase === GAME_PHASE.playing, "Campus match did not start");
+  await waitUntil(() => campusHost.state.phase === GAME_PHASE.preparing, "Campus briefing did not start");
+  const startsAt = campusHost.state.roundStartsAt;
+  const briefingDuration = ROUND_START_RULES.briefingMs + ROUND_START_RULES.countdownMs;
+  if (campusHost.state.matchEndsAt || startsAt - Date.now() < briefingDuration - 2000) {
+    throw new Error("The round clock must wait for the briefing and countdown");
+  }
+  const preparingPlayer = campusHost.state.players.get(campusHost.sessionId);
+  const preparedPosition = { x: preparingPlayer.x, y: preparingPlayer.y };
+  const briefingInput = campusHost.input({ type: MovementInput, mode: "reliable" });
+  briefingInput.data.moveX = 1;
+  briefingInput.data.useSkill = true;
+  briefingInput.data.interact = true;
+  briefingInput.send();
+  await delay(250);
+  if (preparingPlayer.x !== preparedPosition.x || preparingPlayer.y !== preparedPosition.y || preparingPlayer.lastBasicAttackAt) {
+    throw new Error("Preparation did not lock movement and basic attacks");
+  }
+  briefingInput.data.moveX = 0;
+  briefingInput.data.useSkill = false;
+  briefingInput.data.interact = false;
+  briefingInput.send();
+  await waitUntil(() => campusHost.state.phase === GAME_PHASE.playing, "Campus match did not start", 260);
+  if (campusHost.state.matchStartedAt < startsAt) throw new Error("Round started before its countdown ended");
   verify(campusHost, 4);
   if (campusHost.state.mapId !== DEFAULT_MAP_ID || getGameMap(campusHost.state.mapId).tileSize !== 32 ||
     campusHost.state.matchEndsAt - campusHost.state.matchStartedAt !== 420000 ||
@@ -90,7 +113,7 @@ try {
   await delay(100);
   if (publicHost.state.phase !== GAME_PHASE.waiting) throw new Error("Non-host started the match");
   publicHost.send(MATCH_MESSAGES.start);
-  await waitUntil(() => publicHost.state.phase === GAME_PHASE.playing, "Host could not start an eight-player match");
+  await waitUntil(() => publicHost.state.phase === GAME_PHASE.playing, "Host could not start an eight-player match", 260);
   verify(publicHost, 8);
   const originalPublic = new Map([...publicHost.state.players].map(([id, p]) => [id, p.characterId]));
   publicHost.send(MATCH_MESSAGES.start);
@@ -109,7 +132,7 @@ try {
   if (privateHost.state.phase !== GAME_PHASE.waiting) throw new Error("Match started with fewer than four participants");
   track(await new Client(endpoint).joinById(privateHost.roomId, { nickname: "PrivateFourth" }));
   privateHost.send(MATCH_MESSAGES.start);
-  await waitUntil(() => privateHost.state.phase === GAME_PHASE.playing, "Private four-player match failed to start");
+  await waitUntil(() => privateHost.state.phase === GAME_PHASE.playing, "Private four-player match failed to start", 260);
   verify(privateHost, 4);
   const originalPrivate = new Map([...privateHost.state.players].map(([id, p]) => [id, p.characterId]));
   const lateJoin = track(await new Client(endpoint).joinById(privateHost.roomId, { nickname: "LateJoin", characterId: CHARACTER_IDS.xmanZombie, role: PLAYER_ROLE.zombie }));

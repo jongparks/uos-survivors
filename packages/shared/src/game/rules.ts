@@ -1,5 +1,6 @@
 export const GAME_PHASE = {
   waiting: "waiting",
+  preparing: "preparing",
   playing: "playing",
   finished: "finished",
 } as const;

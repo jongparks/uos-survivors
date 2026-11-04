@@ -1,5 +1,5 @@
 import {
-  getGameMap, getMapTile,
+  clearDashDistance, getGameMap, getMapTile,
   CHARACTER_IDS, GAME_PHASE, LATE_ZOMBIE_CONFIG as C, PLAYER_ACTIVITY, PLAYER_ROLE,
   PLAYER_BODY_SIZE, TILE_INDEX, type GameState, type PlayerState,
 } from "@uos-survivors/shared";
@@ -55,9 +55,14 @@ export class LateDashSystem {
     let distance = Infinity, kind = "wall", targetId = "";
     const half = PLAYER_BODY_SIZE / 2;
     const test = (x: number, y: number, w: number, h: number) => entry(p.x, p.y, p.dashDirectionX, p.dashDirectionY, x, y, w / 2 + half, h / 2 + half);
-    for (let y = -1; y <= TEST_MAP_HEIGHT; y++) for (let x = -1; x <= TEST_MAP_WIDTH; x++) {
-      if (getMapTile(map, x, y) === TILE_INDEX.floor) continue;
-      distance = Math.min(distance, test((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, TILE_SIZE, TILE_SIZE));
+    if (map.collisionTiles) {
+      for (let y = -1; y <= TEST_MAP_HEIGHT; y++) for (let x = -1; x <= TEST_MAP_WIDTH; x++) {
+        if (getMapTile(map, x, y) === TILE_INDEX.floor) continue;
+        distance = Math.min(distance, test((x + 0.5) * TILE_SIZE, (y + 0.5) * TILE_SIZE, TILE_SIZE, TILE_SIZE));
+      }
+    } else {
+      const clear = clearDashDistance(map, p, { x: p.dashDirectionX, y: p.dashDirectionY }, step);
+      if (clear < step) distance = clear;
     }
     for (const [key, decoy] of [...state.decoys.entries()].sort(([a], [b]) => a.localeCompare(b))) {
       const d = test(decoy.x, decoy.y, PLAYER_BODY_SIZE, PLAYER_BODY_SIZE);

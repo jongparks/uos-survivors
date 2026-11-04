@@ -19,15 +19,16 @@ export class NetworkDecoyView {
       .setTint(0xc4bdae)
       .setDepth(10);
     this.label = scene.add
-      .text(decoy.x, decoy.y - 34, `[인간] ${decoy.nickname}`, {
+      .text(decoy.x, decoy.y - 26, decoy.nickname, {
         color: "#c9c2b5",
         fontFamily: "monospace",
         fontSize: "11px",
-        backgroundColor: "#07110ebf",
-        padding: { x: 4, y: 2 },
+        backgroundColor: "#10161990",
+        padding: { x: 3, y: 1 },
       })
-      .setOrigin(0.5)
-      .setDepth(11);
+      .setOrigin(0.5, 1)
+      .setAlpha(.83)
+      .setDepth(9);
   }
 
   applyRenderState(x: number, y: number): void {
@@ -37,7 +38,7 @@ export class NetworkDecoyView {
     const previousX = this.sprite.x;
     const moved = previousX !== x || this.sprite.y !== y;
     this.sprite.setPosition(x, y);
-    this.label.setPosition(x, y - 34);
+    this.label.setPosition(x, y - 26);
     if (!moved) {
       return;
     }

@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { CHARACTER_IDS, CHARACTER_PROFILES, COMBAT_RULES, GAME_PHASE, MATCH_MESSAGES } from "@uos-survivors/shared";
+import { COMBAT_RULES, GAME_PHASE, MATCH_MESSAGES } from "@uos-survivors/shared";
 import type { ConnectedGameRoom } from "../network/useGameRoom";
 
 export function MatchPanel({ room }: { room: ConnectedGameRoom }) {
-  const [snapshot, setSnapshot] = useState({ phase: "", character: "", host: "", count: 0, started: 0, error: "" });
-  const [acknowledged, setAcknowledged] = useState("");
+  const [snapshot, setSnapshot] = useState({ phase: "", host: "", count: 0, error: "" });
   useEffect(() => {
     const refresh = () => setSnapshot(previous => {
-      const next = { phase: room.state.phase ?? "", character: room.state.players?.get(room.sessionId)?.characterId ?? "",
+      const next = { phase: room.state.phase ?? "",
         host: room.state.hostSessionId ?? "", count: [...(room.state.players?.values() ?? [])].filter(p => p.connected).length,
-        started: room.state.matchStartedAt ?? 0, error: room.state.startError ?? "" };
+        error: room.state.startError ?? "" };
       return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
     });
     refresh(); room.onStateChange(refresh);
@@ -27,18 +26,5 @@ export function MatchPanel({ room }: { room: ConnectedGameRoom }) {
       {snapshot.error ? <p className="form-error" role="alert">{snapshot.error}</p> : null}
     </section>;
   }
-  const key = `${room.sessionId}:${snapshot.started}`;
-  const profile = CHARACTER_PROFILES[snapshot.character];
-  if (snapshot.phase !== GAME_PHASE.playing || !profile || acknowledged === key) return null;
-  const human = profile.team === "HUMAN";
-  return <section className="match-panel character-intro" aria-label="내 캐릭터 소개">
-    <p className="document-kicker">PERSONNEL RECORD · 배정 기록</p>
-    <h2>나의 생존 기록</h2>
-    <strong>{human ? "인간" : "좀비"} · {profile.name}</strong>
-    <p>{profile.ability ? `고유 능력: ${profile.ability}` : "고유 능력 없음"}</p>
-    <p>{profile.description}</p>
-    <p>방향키: 이동 · Space: {human ? "상호작용" : "기본공격 (쿨타임 2초)"}
-      {profile.ability && snapshot.character !== CHARACTER_IDS.fossil ? " · Shift: 고유 능력" : ""}</p>
-    <button onClick={() => setAcknowledged(key)}>확인</button>
-  </section>;
+  return null;
 }

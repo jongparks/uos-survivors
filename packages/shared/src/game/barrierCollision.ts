@@ -17,9 +17,16 @@ export function applyMovementWithBarriers(position: Position, input: MovementAxe
   role: string, barriers: Iterable<BarrierRectangle>, now: number, map: GameMapDefinition = TEST_GAME_MAP): void {
   const active = role === PLAYER_ROLE.zombie ? [] : [...barriers].filter(b => now < b.expiresAt);
   const velocity = calculateVelocity(input, speed);
+  if (velocity.x === 0 && velocity.y === 0) return;
   // Small steps avoid tunneling at sprint speed or during input replay.
   const steps = Math.max(1, Math.ceil(Math.hypot(velocity.x, velocity.y) * dt / (PLAYER_BODY_SIZE / 2)));
   for (let i = 0; i < steps; i++) {
+    if (!map.collisionTiles && active.length === 0) {
+      const next = moveWithTestMapCollision(position, input, speed, dt / steps, map);
+      position.x = next.x;
+      position.y = next.y;
+      continue;
+    }
     const nextX = moveWithTestMapCollision(position, { moveX: velocity.x, moveY: 0 }, Math.abs(velocity.x), dt / steps, map);
     if (!active.some(b => bodyOverlapsBarrier(nextX, b))) position.x = nextX.x;
     const nextY = moveWithTestMapCollision(position, { moveX: 0, moveY: velocity.y }, Math.abs(velocity.y), dt / steps, map);

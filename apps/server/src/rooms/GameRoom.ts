@@ -29,7 +29,7 @@ import {
   applyMovementWithBarriers,
   LIBRARY_PLACEMENT_FAILED_MESSAGE,
   assignCharacters,
-  MATCH_MESSAGES,
+  MATCH_MESSAGES, ROUND_START_RULES,
   SPECIAL_ZOMBIE_CHARACTER_IDS,
   pickInitialZombieCharacter,
   getPuddleSpeedMultiplier,
@@ -144,12 +144,12 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     player.nickname = normalizeNickname(options.nickname) ?? `생존자${this.state.players.size + 1}`;
     player.connected = true;
     player.role = PLAYER_ROLE.human;
-    if (this.state.phase === GAME_PHASE.playing) {
+    if (this.state.phase === GAME_PHASE.playing || this.state.phase === GAME_PHASE.preparing) {
       player.characterId = CHARACTER_IDS.normalHuman;
     }
     player.x = spawn.x; player.y = spawn.y;
     this.state.players.set(client.sessionId, player);
-    if (this.state.phase === GAME_PHASE.playing) {
+    if (this.state.phase === GAME_PHASE.playing || this.state.phase === GAME_PHASE.preparing) {
       const result = new RoundResultState(); result.nickname = player.nickname; result.startedAsHuman = true;
       this.state.roundResults.set(client.sessionId, result);
     }
@@ -240,6 +240,16 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
 
   private simulate(context: StepContext): void {
     const now = Date.now();
+    if (this.state.phase === GAME_PHASE.preparing && now >= this.state.roundStartsAt) {
+      const participants = [...this.state.players.values()].filter(player => player.connected);
+      if (participants.length < COMBAT_RULES.minimumPlayersToStart || !participants.some(player => player.role === PLAYER_ROLE.zombie)) {
+        this.resetToWaiting();
+        this.state.startError = "참가자 연결 상태를 확인한 뒤 다시 시작해 주세요.";
+      } else {
+        this.state.phase = GAME_PHASE.playing;
+        this.matchTimerGateSystem.start(this.state, now);
+      }
+    }
     this.matchTimerGateSystem.update(this.state, now);
     if (this.state.phase === GAME_PHASE.finished && !this.finishedCleanupDone) {
       this.finishedCleanupDone = true;
@@ -263,6 +273,8 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
       const skillPressed = input.useSkill && !this.skillHeld.get(sessionId);
       this.interactionHeld.set(sessionId, input.interact);
       this.skillHeld.set(sessionId, input.useSkill);
+
+      if (this.state.phase === GAME_PHASE.preparing) return;
 
       updateSportsSprint(player, now);
       updateXmanDisguise(player, now);
@@ -438,9 +450,9 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     player.lastBasicAttackAt = 0;
     this.state.initialZombieSessionId = sessionId;
     this.state.winner = MATCH_WINNER.none;
-    this.state.phase = GAME_PHASE.playing;
+    this.state.phase = GAME_PHASE.preparing;
+    this.state.roundStartsAt = Date.now() + ROUND_START_RULES.briefingMs + ROUND_START_RULES.countdownMs;
     this.finishedCleanupDone = false;
-    this.matchTimerGateSystem.start(this.state, Date.now());
     this.state.roundResults.clear();
     this.state.players.forEach((p, id) => {
       const result = new RoundResultState(); result.nickname = p.nickname; result.startedAsHuman = p.role === PLAYER_ROLE.human; this.state.roundResults.set(id, result);
@@ -457,6 +469,7 @@ export class GameRoom extends Room<{ state: GameState; input: MovementInput }> {
     this.state.mapConfigError = "";
     this.state.startError = "";
     this.state.matchStartedAt = 0;
+    this.state.roundStartsAt = 0;
     this.state.matchParticipantCount = 0;
     this.fossilHideSystem.clear();
     this.professorAssignmentSystem.clear(this.state, this.sendAssignment);

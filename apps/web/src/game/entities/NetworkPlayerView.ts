@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 
-import { CHARACTER_IDS, PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_SPEED, isHumanDisguise, type PlayerState } from "@uos-survivors/shared";
+import { PLAYER_ACTIVITY, PLAYER_ROLE, PLAYER_SPEED, isHumanDisguise, type PlayerState } from "@uos-survivors/shared";
 
 import { TEXTURE_KEYS } from "../rendering/createGeneratedTextures";
 import { ZOMBIE_DESIGNS, type ZombieDesign } from "../rendering/zombieDesigns";
@@ -33,11 +33,11 @@ export class NetworkPlayerView {
         color: isLocalPlayer ? "#dffff0" : "#b9c9ff",
         fontFamily: "monospace",
         fontSize: "11px",
-        backgroundColor: "#07110ebf",
-        padding: { x: 4, y: 2 },
+        backgroundColor: "#10161990",
+        padding: { x: 3, y: 1 },
       })
-      .setOrigin(0.5)
-      .setDepth(11);
+      .setOrigin(0.5, 1)
+      .setDepth(9);
   }
 
   applyRenderState(player: PlayerState, x: number, y: number): void {
@@ -77,23 +77,9 @@ export class NetworkPlayerView {
     );
     const isHidden = player.activity === PLAYER_ACTIVITY.hidden;
     this.sprite.setAlpha(player.escaped ? 0.25 : isHidden ? 0.24 : player.connected ? 1 : 0.42);
-    this.label.setPosition(x, y - (design ? 48 : 34));
-    this.label.setAlpha(isHidden ? 0.72 : player.connected ? 1 : 0.62);
-    const roleLabel = player.role === PLAYER_ROLE.zombie && !disguised
-      ? player.characterId === CHARACTER_IDS.normalZombie ? "일반 좀비"
-        : player.characterId === CHARACTER_IDS.professor ? "교수님"
-          : player.characterId === CHARACTER_IDS.lateZombie ? "지각생"
-          : player.characterId === CHARACTER_IDS.libraryNpc ? "중도 NPC"
-          : player.characterId === CHARACTER_IDS.xmanZombie ? "엑스맨"
-            : player.characterId === CHARACTER_IDS.graduateZombie ? "대학원생" : "만취생"
-      : "인간";
-    this.label.setText(
-      isHidden
-        ? `[은신] ${player.nickname}`
-        : player.connected
-        ? `[${roleLabel}] ${player.nickname}`
-        : `[${roleLabel}] ${player.nickname} · 재접속 중`,
-    );
+    this.label.setAlpha(isHidden ? .55 : player.connected ? .83 : .55);
+    this.label.setText(isHidden ? `[은신] ${player.nickname}` : player.connected
+      ? player.nickname : `${player.nickname} · 재접속 중`);
 
     if (design) {
       if (player.facingX !== 0) this.sprite.setFlipX(player.facingX < 0);
@@ -144,6 +130,7 @@ export class NetworkPlayerView {
     const width = this.appliedDesign?.displayWidth ?? 36;
     const height = this.appliedDesign?.displayHeight ?? 42;
     this.sprite.setDisplaySize(width * (1 + attack * 0.025), height * (1 - attack * 0.025));
+    this.label.setPosition(x, this.sprite.getBounds().top - 5);
   }
 
   destroy(): void {

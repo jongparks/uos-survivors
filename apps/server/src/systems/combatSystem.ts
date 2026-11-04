@@ -21,7 +21,16 @@ interface TargetPosition {
 function isInsideAttackCone(attacker: PlayerState, target: TargetPosition): boolean {
   const deltaX = target.x - attacker.x;
   const deltaY = target.y - attacker.y;
-  const distance = Math.hypot(deltaX, deltaY);
+  // Humans are centered on their anchor. Zombie art is anchored at the feet.
+  const bodyHalfWidth = 18, bodyHalfHeight = 21;
+  const zombieHeight = 44 * 620 / 412;
+  const overlapsBody = Math.abs(deltaX) <= 22 + bodyHalfWidth &&
+    deltaY + bodyHalfHeight >= -zombieHeight * .92 &&
+    deltaY - bodyHalfHeight <= zombieHeight * .08;
+  if (overlapsBody) return true;
+  const bodyX = deltaX - Math.max(-bodyHalfWidth, Math.min(bodyHalfWidth, deltaX));
+  const bodyY = deltaY - Math.max(-bodyHalfHeight, Math.min(bodyHalfHeight, deltaY));
+  const distance = Math.hypot(bodyX, bodyY);
 
   if (distance > COMBAT_RULES.zombieAttackRange) {
     return false;
@@ -33,8 +42,8 @@ function isInsideAttackCone(attacker: PlayerState, target: TargetPosition): bool
 
   const facingMagnitude = Math.hypot(attacker.facingX, attacker.facingY) || 1;
   const directionDot =
-    (deltaX / distance) * (attacker.facingX / facingMagnitude) +
-    (deltaY / distance) * (attacker.facingY / facingMagnitude);
+    (bodyX / distance) * (attacker.facingX / facingMagnitude) +
+    (bodyY / distance) * (attacker.facingY / facingMagnitude);
 
   return directionDot >= COMBAT_RULES.zombieAttackConeCosine;
 }

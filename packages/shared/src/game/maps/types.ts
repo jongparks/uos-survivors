@@ -1,14 +1,14 @@
 export interface MapPoint { x: number; y: number }
 export interface MapPolygon { points: readonly MapPoint[] }
 /**
- * Collision object. Every object blocks the tiles whose centres it covers.
+ * Scenery with a collision footprint in world coordinates.
  * `prop` is a small blocking street object (parked cars, bike racks, kiosks).
- * `variant` and `hideLabel` are art-only hints and never affect collision.
+ * `hideLabel` is an art-only hint.
  */
 export interface StaticMapObject {
   id: string; name: string; kind: "building" | "pond" | "tree" | "prop";
   x: number; y: number; width: number; height: number;
-  /** Art hint, e.g. tree species ("ginkgo", "pine", "cherry") or prop type ("cars-h"). */
+  /** Appearance variant, including building shapes such as "octagon". */
   variant?: string;
   /** Additional wing of a building that is already labelled by another part. */
   hideLabel?: boolean;

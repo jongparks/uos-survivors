@@ -114,6 +114,7 @@ export const GameState = schema(
     gates: t.map(EscapeGateState),
     roundResults: t.map(RoundResultState),
     hostSessionId: t.string().default(""),
+    roundStartsAt: t.float64().default(0),
     matchStartedAt: t.float64().default(0),
     matchParticipantCount: t.uint8().default(0),
     startError: t.string().default(""),

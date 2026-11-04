@@ -73,7 +73,8 @@ const seenName = new Set<string>();
 const objects: StaticMapObject[] = buildingData.map(([name, x0, y0, x1, y1], i) => {
   const a = P(x0, y0), b = P(x1, y1);
   const hideLabel = seenName.has(name); seenName.add(name);
-  return { id: `building-${i}`, name, kind: "building", x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y, ...(hideLabel ? { hideLabel } : {}) };
+  return { id: `building-${i}`, name, kind: "building", x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y,
+    ...(name === "대강당" ? { variant: "octagon" } : {}), ...(hideLabel ? { hideLabel } : {}) };
 });
 
 // 하늘못: two basins with a footbridge gap between them.
@@ -86,7 +87,7 @@ for (const [i, [x0, y0, x1, y1]] of ([[900, 484, 956, 524], [896, 540, 958, 586]
 const propData: Array<[string, number, number, number, number]> = [
   ["cars-v", 510, 494, 518, 566],   // 건설공학관 옆 주차장
   ["cars-v", 524, 494, 532, 566],
-  ["cars-h", 760, 620, 790, 626],   // 학생회관 뒤 주차
+  ["cars-h", 761, 622, 776, 629],   // 학생회관 뒤 주차
   ["cars-v", 744, 640, 750, 700],   // 대강당 옆 주차
   ["cars-h", 404, 410, 444, 416],   // 본부 앞 주차
   ["bike", 436, 462, 456, 468],
@@ -95,7 +96,21 @@ const propData: Array<[string, number, number, number, number]> = [
 ];
 propData.forEach(([variant, x0, y0, x1, y1], i) => {
   const a = P(x0, y0), b = P(x1, y1);
-  objects.push({ id: `prop-${i}`, name: "", kind: "prop", variant, x: a.x, y: a.y, width: Math.max(16, b.x - a.x), height: Math.max(16, b.y - a.y) });
+  const width = Math.max(16, b.x - a.x), height = Math.max(16, b.y - a.y);
+  if (variant === "cars-h" || variant === "cars-v") {
+    const horizontal = variant === "cars-h";
+    const length = horizontal ? width : height;
+    for (let offset = 4, slot = 0; offset + 8 <= length; offset += 13, slot++) {
+      if (slot % 4 === 1) continue; // Empty bays remain walkable.
+      objects.push({
+        id: `prop-${i}-car-${slot}`, name: "", kind: "prop", variant: "car",
+        x: a.x + (horizontal ? offset : 2), y: a.y + (horizontal ? 2 : offset),
+        width: horizontal ? 8 : width - 4, height: horizontal ? height - 4 : 8,
+      });
+    }
+  } else {
+    objects.push({ id: `prop-${i}`, name: "", kind: "prop", variant, x: a.x, y: a.y, width, height });
+  }
 });
 
 // ── Boundary (campus fence), survey units.
@@ -129,7 +144,7 @@ add("stage", [poly([[930, 592], [994, 592], [996, 632], [960, 640], [930, 630]])
 add("track", [rectPts(244, 206, 378, 382)]);
 add("field", [rectPts(262, 230, 360, 360)]);
 add("court", [rectPts(846, 336, 912, 384), rectPts(880, 388, 914, 438)]);
-add("parking", [rectPts(504, 490, 538, 572), rectPts(740, 616, 798, 632), rectPts(398, 406, 450, 420)]);
+add("parking", [rectPts(504, 490, 538, 572), rectPts(759, 616, 782, 633), rectPts(398, 406, 450, 420)]);
 add("plaza", [poly([[176, 560], [258, 548], [258, 652], [200, 652], [172, 620]]), rectPts(398, 420, 478, 470), rectPts(916, 428, 1060, 446)]);
 add("road", [
   ...stroke([[96, 597], [150, 598]], 16),
@@ -149,7 +164,7 @@ add("path", [
   ...stroke([[640, 352], [640, 478]], 12),
   ...stroke([[740, 352], [740, 478]], 12),
   ...stroke([[617, 478], [617, 588]], 12),
-  ...stroke([[790, 478], [790, 628], [770, 630]], 12),
+  ...stroke([[790, 478], [790, 675], [819, 675], [819, 684]], 12),
   ...stroke([[882, 590], [930, 596], [1000, 648]], 12),
   ...stroke([[1060, 436], [1104, 470], [1090, 520]], 12),
   ...stroke([[958, 532], [1000, 528], [1004, 520]], 10),

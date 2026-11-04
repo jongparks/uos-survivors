@@ -10,6 +10,7 @@ export * from "./game/maps/types.js";
 export * from "./game/maps/registry.js";
 export * from "./game/maps/validation.js";
 export * from "./game/maps/scale.js";
+export * from "./game/maps/footprints.js";
 export * from "./game/movement.js";
 export * from "./game/barrierCollision.js";
 export * from "./game/statusEffects.js";

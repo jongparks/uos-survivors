@@ -1,4 +1,4 @@
-import { getMapTiles, pointInPolygon, scaleGameMap, TILE_INDEX, type GameMapDefinition, type MapPoint, type StaticMapObject } from "@uos-survivors/shared";
+import { octagonOutline, pondOutline, getMapTiles, pointInPolygon, scaleGameMap, TILE_INDEX, type GameMapDefinition, type MapPoint, type StaticMapObject } from "@uos-survivors/shared";
 import { CAMPUS_BUILDING_APPEARANCE, DEFAULT_BUILDING_APPEARANCE, type BuildingAppearance } from "./campusAppearance";
 import { paintCampusNightLighting } from "./paintCampusNightLighting";
 
@@ -153,7 +153,7 @@ function paintGround(c: Ctx, map: GameMapDefinition, rng: () => number) {
     const b = bounds(g.points), vertical = b.h > b.w;
     c.save(); polygon(c, g.points); c.clip();
     if (vertical) for (let y = b.y + 4; y < b.y + b.h; y += 13) { line(c, b.x + 2, y, b.x + b.w * .4, y, "#e9e6da", 1); line(c, b.x + b.w * .6, y, b.x + b.w - 2, y, "#e9e6da", 1); }
-    else for (let x = b.x + 4; x < b.x + b.w; x += 9) { line(c, x, b.y + 2, x, b.y + b.h * .45, "#e9e6da", 1); line(c, x, b.y + b.h * .55, x, b.y + b.h - 2, "#e9e6da", 1); }
+    else for (let x = b.x + 4; x < b.x + b.w; x += 13) { line(c, x, b.y + 2, x, b.y + b.h * .45, "#e9e6da", 1); line(c, x, b.y + b.h * .55, x, b.y + b.h - 2, "#e9e6da", 1); }
     c.restore();
   }
   for (const g of by("plaza")) {
@@ -360,10 +360,10 @@ function buildingShadow(c: Ctx, o: StaticMapObject, a: BuildingAppearance) {
 function building(c: Ctx, o: StaticMapObject, rng: () => number) {
   const a = CAMPUS_BUILDING_APPEARANCE[o.name] ?? DEFAULT_BUILDING_APPEARANCE;
   const { x, y, width: w, height: h } = o;
-  if (a.roofForm === "octagon") {
+  if (o.variant === "octagon") {
     // Octagonal hall: drum wall seen at the south, roof above.
     const r = Math.min(w, h) / 2, cx = x + w / 2, cy = y + h / 2 - 3;
-    const ring = Array.from({ length: 8 }, (_, k) => ({ x: cx + Math.cos(k * TAU / 8 + TAU / 16) * r, y: cy + 6 + Math.sin(k * TAU / 8 + TAU / 16) * r }));
+    const ring = octagonOutline(cx, cy + 6, r);
     polygon(c, ring); c.fillStyle = a.wall; c.fill();
     c.save(); polygon(c, ring); c.clip(); for (let sy = cy; sy < cy + r + 8; sy += 3) line(c, x, sy, x + w, sy, "#f1dcc21e", .5); c.restore();
     paintRoof(c, cx - r, cy - r, r * 2, r * 2, a, rng);
@@ -408,15 +408,12 @@ function label(c: Ctx, name: string, x: number, y: number, night: boolean) {
 }
 
 // ───────────────────────────────── water & props
-function organic(cx: number, cy: number, rx: number, ry: number, rng: () => number, n = 26): MapPoint[] {
-  return Array.from({ length: n }, (_, k) => { const a = k / n * TAU, m = .88 + rng() * .12; return { x: cx + Math.cos(a) * rx * m, y: cy + Math.sin(a) * ry * m }; });
-}
 /** One natural-looking pond over all basins of the same name; the gaps between basins are bridges. */
 function pondGroup(c: Ctx, parts: StaticMapObject[], rng: () => number) {
   const x0 = Math.min(...parts.map(p => p.x)), x1 = Math.max(...parts.map(p => p.x + p.width));
   const y0 = Math.min(...parts.map(p => p.y)), y1 = Math.max(...parts.map(p => p.y + p.height));
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2 + 4, ry = (y1 - y0) / 2 + 4;
-  const rim = organic(cx, cy, rx, ry, rng);
+  const rim = pondOutline(parts, 1);
   polygon(c, rim); c.fillStyle = "#8f8a78"; c.fill(); c.strokeStyle = "#6a6657"; c.lineWidth = 3; c.stroke();
   const inner = rim.map(p => ({ x: cx + (p.x - cx) * .9, y: cy + (p.y - cy) * .9 }));
   const water = c.createRadialGradient(cx - rx * .3, cy - ry * .3, 2, cx, cy, Math.max(rx, ry));
@@ -449,15 +446,8 @@ function car(c: Ctx, x: number, y: number, w: number, h: number, color: string) 
 }
 function prop(c: Ctx, o: StaticMapObject, rng: () => number) {
   const v = o.variant ?? "";
-  if (v === "cars-v" || v === "cars-h") {
-    const horizontal = v === "cars-h";
-    const n = Math.max(1, Math.floor((horizontal ? o.width : o.height) / 13));
-    for (let k = 0; k < n; k++) {
-      if (rng() < .18) continue;
-      const col = CAR_COLORS[Math.floor(rng() * CAR_COLORS.length)]!;
-      if (horizontal) car(c, o.x + k * (o.width / n) + 2, o.y + 1, 8, o.height - 2, col);
-      else car(c, o.x + 1, o.y + k * (o.height / n) + 2, o.width - 2, 8, col);
-    }
+  if (v === "car") {
+    car(c, o.x, o.y, o.width, o.height, CAR_COLORS[Math.floor(rng() * CAR_COLORS.length)]!);
   } else if (v === "bike") {
     box(c, o.x, o.y + o.height / 2 - 1, o.width, 2, "#59625f");
     for (let sx = o.x + 2; sx < o.x + o.width - 2; sx += 4) { ellipse(c, sx, o.y + 3, 1.8, 1.8, "#2e3533"); ellipse(c, sx, o.y + o.height - 3, 1.8, 1.8, "#2e3533"); line(c, sx, o.y + 3, sx, o.y + o.height - 3, ["#c8463b", "#3c6fa6", "#e5e1d2"][Math.floor(rng() * 3)]!, 1.2); }
