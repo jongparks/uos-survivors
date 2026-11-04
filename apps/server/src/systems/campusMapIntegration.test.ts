@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getGameMap, getMapTiles, collidesWithMap, scaleGameMap, GameState, PlayerState, GAME_PHASE, CHARACTER_IDS, PLAYER_ROLE } from "@uos-survivors/shared";
+import { DEFAULT_MAP_ID, getGameMap, getMapTiles, collidesWithMap, scaleGameMap, GameState, PlayerState, GAME_PHASE, CHARACTER_IDS, PLAYER_ROLE } from "@uos-survivors/shared";
 import { LateDashSystem } from "./lateDashSystem.js";
 import { VomitSystem } from "./vomitSystem.js";
 import { FossilHideSystem } from "./fossilHideSystem.js";
@@ -7,7 +7,7 @@ import { ComputerRewindSystem } from "./computerRewindSystem.js";
 
 describe("campus map integration", () => {
   it("scales collision, geometry, spawn, gate and hide coordinates together", () => {
-    const map = getGameMap("MAP_UOS_CAMPUS_V2"), scaled = scaleGameMap(map, 2, "SCALED");
+    const map = getGameMap(DEFAULT_MAP_ID), scaled = scaleGameMap(map, 2, "SCALED");
     expect(scaled.worldWidth).toBe(map.worldWidth * 2); expect(scaled.tileSize).toBe(64);
     expect(scaled.spawns[0]!.x).toBe(map.spawns[0]!.x * 2);
     expect(scaled.gates[0]!.interactionRadius).toBe(map.gates[0]!.interactionRadius * 2);
@@ -18,7 +18,7 @@ describe("campus map integration", () => {
     expect(map.hideSpots.every(h => h.interactionRadius === 40)).toBe(true);
   });
   it("uses 32px tiles for dash and projectile abilities, instead of test-map constants", () => {
-    const state = new GameState(); state.mapId = "MAP_UOS_CAMPUS_V2"; state.phase = GAME_PHASE.playing;
+    const state = new GameState(); state.mapId = DEFAULT_MAP_ID; state.phase = GAME_PHASE.playing;
     const map = getGameMap(state.mapId);
     const start = map.spawns.find(p => Array.from({ length: 7 }, (_, i) => p.x + i * 32).every(x => !collidesWithMap(x, p.y, map)))!;
     expect(start).toBeDefined();
@@ -30,12 +30,12 @@ describe("campus map integration", () => {
     expect([...state.vomitProjectiles.values()][0]?.remainingRange).toBe(160);
   });
   it("activates exactly five valid outdoor hiding spots", () => {
-    const map = getGameMap("MAP_UOS_CAMPUS_V2"), hide = new FossilHideSystem(map.hideSpots);
+    const map = getGameMap(DEFAULT_MAP_ID), hide = new FossilHideSystem(map.hideSpots);
     hide.prepareForMatch(); expect(hide.getAvailableSpotViews()).toHaveLength(5);
     expect(hide.getAvailableSpotViews().every(p => !collidesWithMap(p.x, p.y, map))).toBe(true);
   });
   it("does not rewind into campus buildings", () => {
-    const state = new GameState(); state.mapId = "MAP_UOS_CAMPUS_V2"; state.phase = GAME_PHASE.playing;
+    const state = new GameState(); state.mapId = DEFAULT_MAP_ID; state.phase = GAME_PHASE.playing;
     const building = getGameMap(state.mapId).objects.find(o => o.kind === "building")!;
     const p = new PlayerState(); Object.assign(p, { characterId: CHARACTER_IDS.computerStudent, x: building.x + 16, y: building.y + 16 }); state.players.set("cs", p);
     const rewind = new ComputerRewindSystem();

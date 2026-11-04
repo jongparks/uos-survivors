@@ -267,9 +267,18 @@ export const CAMPUS_MAP: GameMapDefinition = {
   hideSpots: enlargedCampus.hideSpots.map((h, i) => ({ ...h, interactionRadius: authoredCampus.hideSpots[i]!.interactionRadius })),
 };
 
+const fallenBodyPositions = [
+  [184, 624, -24], [402, 308, 74], [562, 477, 13],
+  [683, 713, -40], [891, 555, 82], [961, 607, 155],
+] as const;
+
 export const CAMPUS_NIGHT_MAP: GameMapDefinition = {
   ...CAMPUS_MAP,
   id: "MAP_UOS_CAMPUS_NIGHT",
   name: "서울시립대학교 캠퍼스 · 밤",
   lighting: "night",
+  decorations: [...CAMPUS_MAP.decorations, ...fallenBodyPositions.map(([x, y, angle]) => {
+    const point = P(x, y), scale = enlargedCampus.artScale ?? 1;
+    return { x: point.x * scale, y: point.y * scale, kind: "fallenBody" as const, angle };
+  })],
 };

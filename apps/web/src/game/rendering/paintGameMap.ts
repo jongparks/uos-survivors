@@ -459,10 +459,37 @@ function prop(c: Ctx, o: StaticMapObject, rng: () => number) {
 }
 
 // ───────────────────────────────── decorations
+function fallenBody(c: Ctx, x: number, y: number, angle: number) {
+  c.save();
+  c.translate(x, y);
+  c.rotate(angle * Math.PI / 180);
+  c.shadowColor = "transparent";
+  ellipse(c, 1, 2, 18, 8, "#17202465");
+  ellipse(c, -8, 4, 9, 4, "#542a32a8");
+  ellipse(c, -15, 7, 2.3, 1.1, "#542a3280");
+
+  line(c, 3, -2, 13, -6, "#2d343c", 4);
+  line(c, 3, 2, 15, 4, "#363f48", 4);
+  line(c, 12, -6, 16, -6, "#22272a", 3);
+  line(c, 14, 4, 18, 5, "#22272a", 3);
+  line(c, -5, -3, -8, -9, "#555a61", 3);
+  line(c, -5, 3, -1, 8, "#555a61", 3);
+  ellipse(c, -8, -9, 1.8, 1.5, "#94857c");
+  ellipse(c, -1, 8, 1.8, 1.5, "#94857c");
+  box(c, -8, -4.8, 13, 9.6, "#555a61", 2);
+  line(c, -6, -1, 3, -1, "#777e82", 1);
+  ellipse(c, -11, -.2, 3.8, 3.5, "#94857c");
+  ellipse(c, -13, -.9, 2.3, 3, "#292c31");
+  c.restore();
+}
+
 function decoration(c: Ctx, d: GameMapDefinition["decorations"][number], rng: () => number) {
   const { x, y } = d;
   c.save(); c.shadowColor = "#1f302840"; c.shadowOffsetX = 2.5; c.shadowOffsetY = 3; c.shadowBlur = 2;
   switch (d.kind) {
+    case "fallenBody":
+      fallenBody(c, x, y, d.angle ?? 0);
+      break;
     case "bench":
       box(c, x - 9, y - 3, 18, 7, "#8a6c48", 1.5);
       c.shadowColor = "transparent"; for (let k = 0; k < 3; k++) line(c, x - 8, y - 1.5 + k * 2, x + 8, y - 1.5 + k * 2, "#c7a57a", .7);

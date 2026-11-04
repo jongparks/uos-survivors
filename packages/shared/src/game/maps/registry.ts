@@ -1,6 +1,6 @@
 import { PLAYER_SPAWNS, TILE_SIZE, TEST_MAP_WIDTH, TEST_MAP_HEIGHT, tileToWorld, TILE_INDEX } from "../config.js";
 import { TEST_MAP_DATA } from "../map.js";
-import { CAMPUS_MAP, CAMPUS_NIGHT_MAP } from "./campus.js";
+import { CAMPUS_NIGHT_MAP } from "./campus.js";
 import type { GameMapDefinition } from "./types.js";
 import { overlapsMapFootprint } from "./footprints.js";
 
@@ -13,11 +13,10 @@ export const TEST_GAME_MAP: GameMapDefinition = {
   hideSpots: spawns.slice(0, 6).map((p, i) => ({ ...p, id: `test-hide-${i}`, zoneId: `${i}`, exitX: p.x, exitY: p.y, interactionRadius: 36 })), protectedPoints: spawns,
 };
 export const GAME_MAPS: Readonly<Record<string, GameMapDefinition>> = {
-  [CAMPUS_MAP.id]: CAMPUS_MAP,
   [CAMPUS_NIGHT_MAP.id]: CAMPUS_NIGHT_MAP,
   [TEST_GAME_MAP.id]: TEST_GAME_MAP,
 };
-export const DEFAULT_MAP_ID = CAMPUS_MAP.id;
+export const DEFAULT_MAP_ID = CAMPUS_NIGHT_MAP.id;
 export function getGameMap(id = TEST_GAME_MAP.id): GameMapDefinition {
   const map = GAME_MAPS[id]; if (!map) throw new Error(`등록되지 않은 맵: ${id}`); return map;
 }

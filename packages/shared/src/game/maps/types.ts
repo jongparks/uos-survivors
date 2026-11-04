@@ -22,7 +22,7 @@ export type MapGroundKind =
   /** Outside the campus fence: scenery only. */
   | "residential" | "schoolyard" | "street";
 export type MapDecorationKind =
-  | "bench" | "lamp" | "sign"
+  | "bench" | "lamp" | "sign" | "fallenBody"
   | "clock" | "sculpture" | "tower" | "bollard" | "flowerbed" | "bike" | "crosswalk" | "fountain" | "manhole" | "island";
 export interface GameMapDefinition {
   id: string; name: string; tileSize: number; worldWidth: number; worldHeight: number;
